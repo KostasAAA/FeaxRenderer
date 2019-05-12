@@ -26,7 +26,7 @@ PSInput VSMain(VSInput input)
 	return result;
 }
 
-cbuffer SceneConstantBuffer : register(b0)
+cbuffer LightingConstantBuffer : register(b0)
 {
 	float4x4 InvWorldViewProjection;
 	float4	LightDirection;
@@ -35,16 +35,18 @@ cbuffer SceneConstantBuffer : register(b0)
 Texture2D<float4> albedoBuffer : register(t0);
 Texture2D<float4> normalBuffer : register(t1);
 Texture2D<float> depthBuffer : register(t2);
+Texture2D<float> shadowBuffer : register(t3);
 
 PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
 
-	float3 normal = normalBuffer[input.position.xy].rgb;
+	float3 normal = normalBuffer[input.position.xy].rgb * 2 - 1;
 	float3 albedo = albedoBuffer[input.position.xy].rgb;
+	float shadow = shadowBuffer[input.position.xy].r;
 
-	float3 lightDir = float3(1, 1, 1);// LightDirection.xyz
-	output.diffuse.rgb = saturate( dot(normal, lightDir) ) + 0.3;
+	float3 lightDir = LightDirection.xyz;
+	output.diffuse.rgb = shadow * saturate(dot(normal, lightDir)) + 0.3;
 	output.specular.rgb = 0;
 
     return output;

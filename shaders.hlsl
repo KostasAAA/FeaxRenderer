@@ -44,18 +44,17 @@ PSInput VSMain(VSInput input)
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
-	float3 lightDir = normalize(float3(-1,1,-1));
+	float3 lightDir = normalize(float3(1,1,-1));
 	float3 normal = normalize(input.normal.xyz);
 	float NdotL = saturate(dot(normal, lightDir));
 
 	float3 albedo = Diffuse.Sample(SamplerLinear, input.uv);
 
 	albedo = pow(albedo, 2.2);
+	
+	float3 result = 2* NdotL.xxx * albedo;
 
-	float3 result = NdotL.xxx * albedo;
-
-	result = albedo;// pow(result, 1 / 2.2);
-
+	result =  pow(result, 1 / 2.2);
 
     return float4(result,1);
 }

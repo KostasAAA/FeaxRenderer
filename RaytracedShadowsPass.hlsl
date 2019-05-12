@@ -14,6 +14,8 @@ cbuffer cbPerPass : register(b0)
 Texture2D<float>			depthBuffer : register(t0);
 Texture2D<float4>			normalBuffer : register(t1);
 Buffer<float4>				BVHTree : register(t2);
+Texture2D<float>			shadowHistory : register(t3);
+
 RWTexture2D<float>			outputRT : register(u0);
  
 //Texture2D					diffuseMaps[] : register(t5, space1);
@@ -23,21 +25,102 @@ RWTexture2D<float>			outputRT : register(u0);
 #define THREADY 8
 #define THREADGROUPSIZE (THREADX*THREADY)
 
+bool TraceRay(float3 worldPos, float3 rayDir)
+{
+	float t = 0;
+	float2 bCoord = 0;
+
+	int dataOffset = 0;
+	bool done = false;
+
+	bool collision = false;
+
+	int offsetToNextNode = 1;
+
+	float3 rayDirInv = rcp(rayDir);
+
+	[loop]
+	while (offsetToNextNode != 0)
+	{
+		float4 element0 = BVHTree[dataOffset++].xyzw;
+
+		offsetToNextNode = int(element0.w);
+
+		collision = false;
+
+		if (offsetToNextNode < 0)
+		{
+			float4 element1 = BVHTree[dataOffset++].xyzw;
+
+			//try collision against this node's bounding box	
+			float3 bboxMin = element0.xyz;
+			float3 bboxMax = element1.xyz;
+
+			//intermediate node check for intersection with bounding box
+			collision = RayIntersectsBox(worldPos.xyz, rayDirInv, bboxMin.xyz, bboxMax.xyz);
+
+			//if there is collision, go to the next node (left) or else skip over the whole branch
+			if (!collision)
+				dataOffset -= offsetToNextNode;
+		}
+		else if (offsetToNextNode > 0)
+		{
+			float4 vertex0 = element0;
+			float4 vertex1MinusVertex0 = BVHTree[dataOffset++].xyzw;
+			float4 vertex2MinusVertex0 = BVHTree[dataOffset++].xyzw;
+
+			//check for intersection with triangle
+			collision = RayTriangleIntersect(worldPos.xyz, rayDir, vertex0.xyz, vertex1MinusVertex0.xyz, vertex2MinusVertex0.xyz, t, bCoord);
+
+			if (collision)
+				return true;
+		}
+	};
+
+	return false;
+}
+
+#define PI 3.14159265359
+
+static float gActivateRotation = 1;
+
+float rand01(float2 uv)
+{
+	return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+float2 randomOnDisk(float2 uv)
+{
+	float2 rand;
+	rand.x = rand01(uv);
+	rand.y = rand01(1-uv.yx);
+
+	float rho = sqrt(rand.x);
+	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w /(2* PI);
+
+	return rho * float2(cos(phi), sin(phi));
+}
+
 [numthreads(THREADX, THREADY, 1)]
 void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
-	bool collision = false;
-	int offsetToNextNode = 1;
+	float collision = 0;
 	 
 	float depth = depthBuffer[DTid.xy].x;
-	float3 normal = normalBuffer[DTid.xy].xyz;
+	float3 normal = normalBuffer[DTid.xy].xyz * 2 - 1;
 
-	float NdotL = dot(normal, lightDir.xyz);
+	float NdotL = dot(normal, normalize(lightDir.xyz));
+
+	float2 uv = DTid.xy * rtSize.zw;
+
+	gActivateRotation = 1;
 
 	//do not raytrace for sky pixels and for surfaces that point away from the light
 	if (depth < 1 && NdotL > 0)
 	{
-		float2 uv = DTid.xy * rtSize.zw;
+
+		if (uv.x >= 0.5)
+			gActivateRotation = 0;
 
 		//get world position from depth
 		float4 clipPos = float4(2 * uv - 1, depth, 1);
@@ -46,81 +129,47 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		float4 worldPos = mul(invProjView, clipPos);
 		worldPos.xyz /= worldPos.w;
 
-		float3 rayDir = lightDir.xyz;
-		float3 rayDirInv = rcp(rayDir);
-
 		//offset to avoid selfshadows
-		worldPos.xyz += 2 * normal;
+		worldPos.xyz += 0.01 * normal;
 
-		float t = 0;
-		float2 bCoord = 0;
+		float3 rayDir = lightDir.xyz;
+		float3 lightPerpX = normalize(cross(lightDir.xyz, float3(0,1,0)));
+		float3 lightPerpY = normalize(cross(lightDir.xyz, lightPerpX));
 
-		int dataOffset = 0;  
-		bool done = false;
+		int w = 2;
+		float scale = 0.04;
+		//scale = 1;
 
-		[loop]
-		while (offsetToNextNode != 0)
+		for (int y = 0; y < w; y++)
 		{
-			float4 element0 = BVHTree[dataOffset++].xyzw;
-
-			offsetToNextNode = int(element0.w);
-
-			collision = false;
-
-			if (offsetToNextNode < 0)
+			for (int x = 0; x < w; x++)
 			{
-				float4 element1 = BVHTree[dataOffset++].xyzw;
+#if 0
+				float ry = scale * (rand01((DTid.xy + float2(y, x))* rtSize.zw)-0.5);
+				float rx = scale * (rand01((DTid.yx + float2(x, y))* rtSize.zw)-0.5);
+#else
+				float2 pointOnDisk = randomOnDisk( uv + float2(x, y)* rtSize.zw );
 
-				//try collision against this node's bounding box	
-				float3 bboxMin = element0.xyz;
-				float3 bboxMax = element1.xyz;
+				float ry = 0.5*scale * pointOnDisk.y;
+				float rx = 0.5*scale * pointOnDisk.x;
+#endif
+				rayDir = normalize(lightDir.xyz + rx * lightPerpX + ry * lightPerpY);
 
-				//intermediate node check for intersection with bounding box
-				collision = RayIntersectsBox(worldPos.xyz, rayDirInv, bboxMin.xyz, bboxMax.xyz);
-
-				//if there is collision, go to the next node (left) or else skip over the whole branch
-				if (!collision)
-					dataOffset -= offsetToNextNode;
+				collision += TraceRay(worldPos.xyz, rayDir);
 			}
-			else if (offsetToNextNode > 0)
-			{				 
-				for (int i = 0; i < (int)element0.y; i+=3)
-				{
-					float4 vertex0 = BVHTree[dataOffset++].xyzw;
-					float4 vertex1MinusVertex0 = BVHTree[dataOffset++].xyzw;
-					float4 vertex2MinusVertex0 = BVHTree[dataOffset++].xyzw;
-					float4	uv1_2 = BVHTree[dataOffset++].xyzw;
-
-					uint materialID = asuint(vertex0.w);
-
-					//check for intersection with triangle
-					collision = RayTriangleIntersect(worldPos.xyz, rayDir, vertex0.xyz, vertex1MinusVertex0.xyz, vertex2MinusVertex0.xyz, t, bCoord);
-
-					//if (collision)
-					//{
-					//	//get the uv coords of each vertex to interpolate
-					//	float2 uv0 = float2(vertex1MinusVertex0.w, vertex2MinusVertex0.w);
-					//	float2 uv1 = uv1_2.xy;
-					//	float2 uv2 = uv1_2.zw;
-
-					//	float2 uv = (1 - bCoord.x - bCoord.y) * uv0 + bCoord.x * uv1 + bCoord.y * uv2;
-
-					//	float alpha = diffuseMaps[NonUniformResourceIndex(materialID & ~(1 << 31))].SampleLevel(samplerPoint, uv, 2).w;
-
-					//	collision = (alpha >= 0.5);
-
-					//	if (collision)
-					//	 break;
-					//}
-				} 
-
-				if (collision)
-				{
-					break;
-				}
-			}
-		};
+		}
+		collision /= w*w;
 	}
+	float shadowFactor = 1 - float(collision);
 
-	outputRT[DTid.xy] =   1 - float(collision);
+	float historyValue = shadowHistory[DTid.xy];
+	if (cameraPos.w < 10)
+		historyValue = 1;
+
+	if ( uv.x < 0.5)
+		outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.9);
+	else
+		outputRT[DTid.xy] = shadowFactor;
+
+	//historyRT[DTid.xy] = 
 }

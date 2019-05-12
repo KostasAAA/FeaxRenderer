@@ -1,17 +1,8 @@
-//*********************************************************
-//
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
-// IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
-// PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
-//
-//*********************************************************
 
-cbuffer SceneConstantBuffer : register(b0)
+cbuffer GPrepassConstantBuffer : register(b0)
 {
 	float4x4 WorldViewProjection;
+	float4		lightDir;
 };
 
 struct VSInput
@@ -52,7 +43,7 @@ PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
 
-	float3 normal = normalize(input.normal.xyz);
+	float3 normal = normalize(input.normal.xyz) * 0.5 + 0.5;
 	float3 albedo = Diffuse.Sample(SamplerLinear, input.uv).rgb;
 
 	output.colour.rgb = albedo;

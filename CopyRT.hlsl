@@ -1,9 +1,30 @@
 
-Texture2D<float4> Input : register(t0);
-RWTexture2D<unorm float4> Output : register(u0);
 
-[numthreads(8, 8, 1)]
-void CSMain(uint3 threadID : SV_DispatchThreadID)
+struct VSInput
 {
-    Output[threadID.xy] = Input[threadID.xy];
+	float3 position : POSITION;
+	float2 uv : TEXCOORD;
+};
+
+struct PSInput
+{
+	float2 uv : TEXCOORD;
+	float4 position : SV_POSITION;
+};
+
+PSInput VSMain(VSInput input)
+{
+	PSInput result;
+
+	result.position = float4(input.position.xyz, 1);
+	result.uv = input.uv;
+
+	return result;
+}
+
+Texture2D<float4> InputTexture : register(t0);
+
+float4 PSMain(PSInput input) : SV_Target
+{
+    return InputTexture[input.position.xy];
 }
