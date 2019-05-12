@@ -1,1 +1,4 @@
 obj/
+.vs/
+FeaxRenderer.ipdb
+FeaxRenderer.iobj
