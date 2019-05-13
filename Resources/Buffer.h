@@ -2,11 +2,39 @@
 
 #include "DescriptorHeap.h"
 
+
 class Buffer
 {
 public:
+	struct DescriptorType
+	{
+		enum Enum
+		{
+			SRV = 1,
+			CBV = 2,
+			UAV = 4
+		};
+	};
 
-	Buffer(uint noofElements, uint elementSize, DXGI_FORMAT format, unsigned char *data = nullptr, LPCWSTR name = nullptr);
+	struct Description
+	{
+		uint m_noofElements;
+		uint m_elementSize;
+		uint64 m_alignment;
+		DXGI_FORMAT m_format;
+		D3D12_RESOURCE_FLAGS m_resourceFlags;
+		D3D12_RESOURCE_STATES m_state;
+
+		Description() :
+			m_noofElements(0)
+			, m_elementSize(0)
+			, m_alignment(0)
+			, m_format(DXGI_FORMAT_UNKNOWN)
+			, m_resourceFlags(D3D12_RESOURCE_FLAG_NONE)
+			, m_state(D3D12_RESOURCE_STATE_COMMON) {}
+	};
+
+	Buffer(Description& description, LPCWSTR name = nullptr, unsigned char *data = nullptr);
 	Buffer() {}
 	virtual ~Buffer();
 
@@ -15,12 +43,9 @@ public:
 	DescriptorHandle& GetSRV() { return m_srvHandle; }
 
 private:
-	uint m_noofElements;
-	uint m_elementSize;
-	uint m_bufferSize;
-	DXGI_FORMAT m_format;
-	D3D12_RESOURCE_FLAGS m_resourceFlags;
+	Description m_description;
 
+	uint m_bufferSize;
 	unsigned char* m_data;
 
 	ID3D12Resource* m_buffer;

@@ -5,14 +5,12 @@
 #include "..\DXSample.h"
 #include <string>
 
-Buffer::Buffer(uint noofElements, uint elementSize, DXGI_FORMAT format, unsigned char *data, LPCWSTR name)
-: m_noofElements(noofElements)
-, m_elementSize(elementSize)
-, m_format(format)
+Buffer::Buffer(Description& description, LPCWSTR name, unsigned char *data)
+: m_description(description)
 , m_data(data)
 {
-	m_bufferSize = noofElements * elementSize;
-	m_resourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	m_bufferSize = m_description.m_noofElements * m_description.m_elementSize;
+//	m_resourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 	CreateResources();
 
@@ -26,10 +24,10 @@ void Buffer::CreateResources()
 	ID3D12GraphicsCommandList* commandList = Graphics::Context.m_commandList;
 
 	D3D12_RESOURCE_DESC desc = {};
-	desc.Alignment = 0;
+	desc.Alignment = m_description.m_alignment;
 	desc.DepthOrArraySize = 1;
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	desc.Flags = m_resourceFlags;
+	desc.Flags = m_description.m_resourceFlags;
 	desc.Format = DXGI_FORMAT_UNKNOWN;
 	desc.Height = 1;
 	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
@@ -83,9 +81,9 @@ void Buffer::CreateResources()
 	// Describe and create a SRV for the texture.
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = m_format;
+	srvDesc.Format = m_description.m_format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-	srvDesc.Buffer.NumElements = m_noofElements;
+	srvDesc.Buffer.NumElements = m_description.m_noofElements;
 	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
 	device->CreateShaderResourceView(m_buffer, &srvDesc, m_srvHandle.GetCPUHandle());

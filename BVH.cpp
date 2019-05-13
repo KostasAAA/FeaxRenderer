@@ -365,7 +365,12 @@ namespace BVH
 		bbox->MinBounds.w = 0;
 		dataOffset += sizeof(BVHNodeBBoxGPU);
 
-		Buffer* bvhBuffer = new Buffer(dataOffset / sizeof(XMFLOAT4), sizeof(XMFLOAT4), DXGI_FORMAT_R32G32B32A32_FLOAT, bvhTreeNodesGPU, L"BVHBuffer");
+		Buffer::Description desc;
+		desc.m_noofElements = dataOffset / sizeof(XMFLOAT4);
+		desc.m_elementSize = sizeof(XMFLOAT4);
+		desc.m_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+
+		Buffer* bvhBuffer = new Buffer(desc, bvhTreeNodesGPU, L"BVHBuffer");
 		scene->SetBVHBuffer(bvhBuffer);
 
 		free(bvhTreeNodesGPU);

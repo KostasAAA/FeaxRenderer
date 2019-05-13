@@ -4,7 +4,10 @@ using namespace std;
 using namespace DirectX;
 
 typedef UINT uint;
+typedef UINT64 uint64;
 typedef unsigned char uint8;
+
+#define Align(value, alignment) (((value + alignment - 1) / alignment) * alignment)
 
 inline XMVECTOR Float3ToVector4(XMFLOAT3& floatVec)
 {

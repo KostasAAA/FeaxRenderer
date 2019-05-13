@@ -12,6 +12,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
+//#define DXR
+
 #include <windows.h>
 
 #include <d3d12.h>

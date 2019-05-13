@@ -111,6 +111,9 @@
     <ClInclude Include="ImGUI\imgui_internal.h">
       <Filter>ImGUI</Filter>
     </ClInclude>
+    <ClInclude Include="DXR.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -181,6 +184,9 @@
     </ClCompile>
     <ClCompile Include="ImGUI\imgui_impl_win32.cpp">
       <Filter>ImGUI</Filter>
+    </ClCompile>
+    <ClCompile Include="DXR.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

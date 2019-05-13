@@ -116,6 +116,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BVH.h" />
+    <ClInclude Include="DXR.h" />
     <ClInclude Include="FeaxRenderer.h" />
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="ImGUI\imconfig.h" />
@@ -147,6 +148,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BVH.cpp" />
+    <ClCompile Include="DXR.cpp" />
     <ClCompile Include="FeaxRenderer.cpp" />
     <ClCompile Include="ImGUI\imgui.cpp" />
     <ClCompile Include="ImGUI\imgui_demo.cpp" />

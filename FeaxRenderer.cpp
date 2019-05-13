@@ -141,13 +141,6 @@ void FeaxRenderer::LoadPipeline()
 		cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 		cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
-
-		//// Describe and create a shader resource view (SRV) heap for the texture.
-		//D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-		//srvHeapDesc.NumDescriptors = 1;
-		//srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		//srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		//ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
     }
 
     // Create frame resources.
@@ -529,8 +522,12 @@ void FeaxRenderer::LoadAssets()
 		DescriptorHeapManager* descriptorManager = Graphics::Context.m_descriptorManager;
 
 		{
-			// CB size is required to be 256-byte aligned.
-			uint alignedSize = (sizeof(ShadowPassCBData) + 255) & ~255;
+			Buffer::Description desc;
+			desc.m_noofElements = 1;
+			desc.m_elementSize = Align(sizeof(SceneConstantBuffer), 256);
+			desc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+
+			Buffer* bvhBuffer = new Buffer(desc, L"Scene Constant Buffer");
 
 			ThrowIfFailed(m_device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -558,7 +555,7 @@ void FeaxRenderer::LoadAssets()
 		//create constant buffer for shadowpass
 		{
 			// CB size is required to be 256-byte aligned.
-			uint alignedSize = (sizeof(ShadowPassCBData) + 255) & ~255;
+			uint alignedSize = Align(sizeof(ShadowPassCBData), 256);
 
 			ThrowIfFailed(m_device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
