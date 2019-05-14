@@ -10,9 +10,9 @@ public:
 	{
 		enum Enum
 		{
-			SRV = 1,
-			CBV = 2,
-			UAV = 4
+			SRV = 1 << 0,
+			CBV = 1 << 1,
+			UAV = 1 << 2,
 		};
 	};
 

@@ -532,7 +532,7 @@ void FeaxRenderer::LoadAssets()
 			ThrowIfFailed(m_device->CreateCommittedResource(
 				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(alignedSize),
+				&CD3DX12_RESOURCE_DESC::Buffer(desc.m_elementSize),
 				D3D12_RESOURCE_STATE_GENERIC_READ,
 				nullptr,
 				IID_PPV_ARGS(&m_constantBuffer)));
