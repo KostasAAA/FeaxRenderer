@@ -136,8 +136,8 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		float3 lightPerpX = normalize(cross(lightDir.xyz, float3(0,1,0)));
 		float3 lightPerpY = normalize(cross(lightDir.xyz, lightPerpX));
 
-		int w = 2;
-		float scale = 0.04;
+		int w = 4;
+		float scale = 0.03;
 		//scale = 1;
 
 		for (int y = 0; y < w; y++)
@@ -163,12 +163,10 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 	float shadowFactor = 1 - float(collision);
 
 	float historyValue = shadowHistory[DTid.xy];
-	if (cameraPos.w < 10)
-		historyValue = 1;
 
-	if ( uv.x < 0.5)
-		outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.9);
-	else
+	//if ( uv.x < 0.5)
+	//	outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.9);
+	//else
 		outputRT[DTid.xy] = shadowFactor;
 
 	//historyRT[DTid.xy] = 

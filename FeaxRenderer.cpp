@@ -523,61 +523,70 @@ void FeaxRenderer::LoadAssets()
 
 		{
 			Buffer::Description desc;
-			desc.m_noofElements = 1;
 			desc.m_elementSize = Align(sizeof(SceneConstantBuffer), 256);
 			desc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+			desc.m_descriptorType = Buffer::DescriptorType::CBV;
 
-			Buffer* bvhBuffer = new Buffer(desc, L"Scene Constant Buffer");
+			m_constantBuffer = new Buffer(desc, L"Scene Constant Buffer");
 
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(desc.m_elementSize),
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&m_constantBuffer)));
+			//ThrowIfFailed(m_device->CreateCommittedResource(
+			//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			//	D3D12_HEAP_FLAG_NONE,
+			//	&CD3DX12_RESOURCE_DESC::Buffer(desc.m_elementSize),
+			//	D3D12_RESOURCE_STATE_GENERIC_READ,
+			//	nullptr,
+			//	IID_PPV_ARGS(&m_constantBuffer)));
 
-			m_lightsCBHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			//m_lightsCBHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			// Describe and create a constant buffer view.
-			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-			cbvDesc.BufferLocation = m_constantBuffer->GetGPUVirtualAddress();
-			cbvDesc.SizeInBytes = alignedSize;    // CB size is required to be 256-byte aligned.
-			m_device->CreateConstantBufferView(&cbvDesc, m_lightsCBHandle.GetCPUHandle());
+			//// Describe and create a constant buffer view.
+			//D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+			//cbvDesc.BufferLocation = m_constantBuffer->GetGPUVirtualAddress();
+			//cbvDesc.SizeInBytes = alignedSize;    // CB size is required to be 256-byte aligned.
+			//m_device->CreateConstantBufferView(&cbvDesc, m_lightsCBHandle.GetCPUHandle());
 
 			// Map and initialize the constant buffer. We don't unmap this until the
 			// app closes. Keeping things mapped for the lifetime of the resource is okay.
-			CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
-			ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)));
-			memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
+			//CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
+			//ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)));
+			//memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
 		}
 
 		//create constant buffer for shadowpass
 		{
-			// CB size is required to be 256-byte aligned.
-			uint alignedSize = Align(sizeof(ShadowPassCBData), 256);
+			Buffer::Description desc;
+			desc.m_elementSize = Align(sizeof(ShadowPassCBData), 256);
+			desc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+			desc.m_descriptorType = Buffer::DescriptorType::CBV;
 
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(alignedSize),
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&m_shadowsCB)));
+			m_shadowsCB = new Buffer(desc, L"Raytraced Shadows CB");
 
-			m_shadowsCBHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			// Describe and create a constant buffer view.
-			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-			cbvDesc.BufferLocation = m_shadowsCB->GetGPUVirtualAddress();
-			cbvDesc.SizeInBytes = alignedSize;    // CB size is required to be 256-byte aligned.
-			m_device->CreateConstantBufferView(&cbvDesc, m_shadowsCBHandle.GetCPUHandle());
 
-			// Map and initialize the constant buffer. We don't unmap this until the
-			// app closes. Keeping things mapped for the lifetime of the resource is okay.
-			CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
-			ThrowIfFailed(m_shadowsCB->Map(0, &readRange, reinterpret_cast<void**>(&m_shadowsCBDataBegin)));
-			memcpy(m_shadowsCBDataBegin, &m_shadowsCBData, sizeof(m_shadowsCBData));
+			//// CB size is required to be 256-byte aligned.
+			//uint alignedSize = Align(sizeof(ShadowPassCBData), 256);
+
+			//ThrowIfFailed(m_device->CreateCommittedResource(
+			//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			//	D3D12_HEAP_FLAG_NONE,
+			//	&CD3DX12_RESOURCE_DESC::Buffer(alignedSize),
+			//	D3D12_RESOURCE_STATE_GENERIC_READ,
+			//	nullptr,
+			//	IID_PPV_ARGS(&m_shadowsCB)));
+
+			//m_shadowsCBHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			//// Describe and create a constant buffer view.
+			//D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+			//cbvDesc.BufferLocation = m_shadowsCB->GetGPUVirtualAddress();
+			//cbvDesc.SizeInBytes = alignedSize;    // CB size is required to be 256-byte aligned.
+			//m_device->CreateConstantBufferView(&cbvDesc, m_shadowsCBHandle.GetCPUHandle());
+
+			//// Map and initialize the constant buffer. We don't unmap this until the
+			//// app closes. Keeping things mapped for the lifetime of the resource is okay.
+			//CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
+			//ThrowIfFailed(m_shadowsCB->Map(0, &readRange, reinterpret_cast<void**>(&m_shadowsCBDataBegin)));
+			//memcpy(m_shadowsCBDataBegin, &m_shadowsCBData, sizeof(m_shadowsCBData));
 		}
 
 
@@ -686,7 +695,7 @@ void FeaxRenderer::OnUpdate()
 	m_constantBufferData.WorldViewProjection =  view * projection;
 	m_constantBufferData.LightDir = ToFloat4(lightDir);
 
-	memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
+	memcpy(m_constantBuffer->Map(), &m_constantBufferData, sizeof(m_constantBufferData));
 
 	ShadowPassCBData shadowPassData;
 	shadowPassData.ViewProjection = viewProjection;
@@ -696,7 +705,7 @@ void FeaxRenderer::OnUpdate()
 	shadowPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
 	shadowPassData.CameraPos.w = (int)frameCount;
 
-	memcpy(m_shadowsCBDataBegin, &shadowPassData, sizeof(shadowPassData));
+	memcpy(m_shadowsCB->Map(), &shadowPassData, sizeof(shadowPassData));
 
 	frameCount++;
 
@@ -754,8 +763,8 @@ void FeaxRenderer::OnDestroy()
 	m_fullscreenVertexBuffer->Release();
 	m_fullscreenVertexBufferUpload->Release();
 
-	m_constantBuffer->Unmap(0, nullptr);
-	m_constantBuffer->Release();
+	delete m_constantBuffer;
+	delete m_shadowsCB;
 
 	m_UISrvDescHeap->Release();
 
@@ -804,7 +813,7 @@ void FeaxRenderer::PopulateCommandList()
 
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_texture->GetSRV());
 
-			m_commandList->SetGraphicsRootConstantBufferView(0, m_constantBuffer->GetGPUVirtualAddress());
+			m_commandList->SetGraphicsRootConstantBufferView(0, m_constantBuffer->GetResource()->GetGPUVirtualAddress());
 			m_commandList->SetGraphicsRootDescriptorTable(1, srvHandle.GetGPUHandle());
 
 			m_commandList->RSSetViewports(1, &m_viewport);
@@ -861,7 +870,7 @@ void FeaxRenderer::PopulateCommandList()
 			Buffer *bvh = m_scene.GetBVHBuffer();
 
 			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
-			gpuDescriptorHeap->AddToHandle(cbvHandle, m_shadowsCBHandle.GetCPUHandle());
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_shadowsCB->GetCBV());
 
 			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(4);
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
@@ -912,7 +921,7 @@ void FeaxRenderer::PopulateCommandList()
 			m_commandList->SetGraphicsRootSignature(m_lightingRS.GetSignature());
 
 			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
-			gpuDescriptorHeap->AddToHandle(cbvHandle, m_lightsCBHandle.GetCPUHandle());
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_constantBuffer->GetCBV());
 
 			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(4);
 

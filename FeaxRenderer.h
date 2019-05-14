@@ -99,16 +99,13 @@ private:
 	Rendertarget*	m_shadowsHistoryRT;
 	ComputePSO		m_shadowsPSO;
 	RootSignature	m_shadowsRS;
-	ID3D12Resource* m_shadowsCB;
+	Buffer*			m_shadowsCB;
 	ShadowPassCBData m_shadowsCBData;
-	UINT8*			m_shadowsCBDataBegin;
-	DescriptorHandle m_shadowsCBHandle;
 
 	//Lighting pass
 	Rendertarget*	m_lightingRT[Lighting::Noof];
 	GraphicsPSO		m_lightingPSO;
 	RootSignature	m_lightingRS;
-	DescriptorHandle m_lightsCBHandle;
 
 	//composite pass
 	Rendertarget*	m_mainRT;
@@ -134,9 +131,8 @@ private:
 //    UINT m_rtvDescriptorSize;
 
 	// App resources.
-	ID3D12Resource* m_constantBuffer;
+	Buffer* m_constantBuffer;
 	SceneConstantBuffer m_constantBufferData;
-	UINT8* m_pCbvDataBegin;
 	Texture* m_texture;
 	Texture* m_texture2;
 

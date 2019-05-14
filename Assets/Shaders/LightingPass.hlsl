@@ -40,14 +40,32 @@ Texture2D<float> shadowBuffer : register(t3);
 PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
+	float depth = depthBuffer[input.position.xy].x;
+	if (depth < 1)
+	{
+		float3 normal = normalBuffer[input.position.xy].rgb * 2 - 1;
+		float3 albedo = albedoBuffer[input.position.xy].rgb;
 
-	float3 normal = normalBuffer[input.position.xy].rgb * 2 - 1;
-	float3 albedo = albedoBuffer[input.position.xy].rgb;
-	float shadow = shadowBuffer[input.position.xy].r;
+		int w = 2;
+		float shadow = 0;
 
-	float3 lightDir = LightDirection.xyz;
-	output.diffuse.rgb = shadow * saturate(dot(normal, lightDir)) + 0.3;
-	output.specular.rgb = 0;
+		for(int y = -w; y <= w; y++ )
+			for (int x = -w; x <= w; x++)
+			{
+				float sampleDepth = depthBuffer[input.position.xy + float2(x,y)].x;
+
+				shadow += /* exp(-4*abs(sampleDepth-depth)) */  shadowBuffer[input.position.xy+float2(x, y)].r;
+			}
+
+		shadow /= (2 * w + 1) * (2 * w + 1);
+
+		float3 lightDir = LightDirection.xyz;
+
+		output.diffuse.rgb = shadow * saturate(dot(normal, lightDir)) + 0.3;
+		output.specular.rgb = 0;
+	}
+	else
+		output.diffuse.rgb = 1;
 
     return output;
 }

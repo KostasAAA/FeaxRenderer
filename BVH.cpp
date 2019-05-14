@@ -369,8 +369,9 @@ namespace BVH
 		desc.m_noofElements = dataOffset / sizeof(XMFLOAT4);
 		desc.m_elementSize = sizeof(XMFLOAT4);
 		desc.m_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+		desc.m_descriptorType = Buffer::DescriptorType::SRV;
 
-		Buffer* bvhBuffer = new Buffer(desc, bvhTreeNodesGPU, L"BVHBuffer");
+		Buffer* bvhBuffer = new Buffer(desc, L"BVHBuffer", bvhTreeNodesGPU);
 		scene->SetBVHBuffer(bvhBuffer);
 
 		free(bvhTreeNodesGPU);

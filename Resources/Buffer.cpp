@@ -2,14 +2,19 @@
 #include "Graphics.h"
 #include "DescriptorHeap.h"
 #include "Buffer.h"
-#include "..\DXSample.h"
 #include <string>
 
 Buffer::Buffer(Description& description, LPCWSTR name, unsigned char *data)
 : m_description(description)
 , m_data(data)
+, m_cbvMappedData(nullptr)
 {
 	m_bufferSize = m_description.m_noofElements * m_description.m_elementSize;
+
+	if (m_description.m_descriptorType & DescriptorType::CBV)
+	{
+		m_bufferSize = Align(m_bufferSize, 256);
+	}
 //	m_resourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 	CreateResources();
@@ -37,7 +42,7 @@ void Buffer::CreateResources()
 	desc.Width = (UINT64)m_bufferSize;
 
 	D3D12_HEAP_PROPERTIES heapProperties;
-	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	heapProperties.Type = (m_description.m_descriptorType & DescriptorType::CBV) ? D3D12_HEAP_TYPE_UPLOAD : D3D12_HEAP_TYPE_DEFAULT;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 	heapProperties.CreationNodeMask = 1;
@@ -76,21 +81,42 @@ void Buffer::CreateResources()
 
 	// Describe and create a shader resource view (SRV) heap for the texture.
 	DescriptorHeapManager* descriptorManager = Graphics::Context.m_descriptorManager;
-	m_srvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// Describe and create a SRV for the texture.
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = m_description.m_format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-	srvDesc.Buffer.NumElements = m_description.m_noofElements;
-	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+	if (m_description.m_descriptorType & DescriptorType::SRV)
+	{
+		m_srvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	device->CreateShaderResourceView(m_buffer, &srvDesc, m_srvHandle.GetCPUHandle());
+		// Describe and create a SRV for the texture.
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = m_description.m_format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srvDesc.Buffer.NumElements = m_description.m_noofElements;
+		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+		device->CreateShaderResourceView(m_buffer, &srvDesc, m_srvHandle.GetCPUHandle());
+	}
+
+	if (m_description.m_descriptorType & DescriptorType::CBV)
+	{
+		m_cbvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		// Describe and create a constant buffer view.
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+		cbvDesc.BufferLocation = m_buffer->GetGPUVirtualAddress();
+		cbvDesc.SizeInBytes = m_bufferSize;    // CB size is required to be 256-byte aligned.
+		device->CreateConstantBufferView(&cbvDesc, m_cbvHandle.GetCPUHandle());
+	}
+
 }
 
 Buffer::~Buffer()
 {
+	if( m_cbvMappedData)
+		m_buffer->Unmap(0, nullptr);
+
 	m_buffer->Release();
-	m_bufferUpload->Release();
+
+	if(m_bufferUpload)
+		m_bufferUpload->Release();
 }

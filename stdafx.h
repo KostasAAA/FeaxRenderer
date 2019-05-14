@@ -28,6 +28,8 @@
 
 #include <vector>
 
+#include "DXSample.h"
+
 #include "Maths.h"
 
 #include "GraphicsContext.h"
