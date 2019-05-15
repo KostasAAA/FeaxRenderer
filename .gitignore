@@ -2,3 +2,6 @@ obj/
 .vs/
 FeaxRenderer.ipdb
 FeaxRenderer.iobj
+*.pdb
+*.user
+*.ilk
