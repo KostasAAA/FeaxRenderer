@@ -38,6 +38,9 @@ void FeaxRenderer::LoadPipeline()
 {
     UINT dxgiFactoryFlags = 0;
 
+
+
+
 #if defined(_DEBUG)
     // Enable the debug layer (requires the Graphics Tools "optional feature").
     // NOTE: Enabling the debug layer after device creation will invalidate the active device.
@@ -58,34 +61,43 @@ void FeaxRenderer::LoadPipeline()
     IDXGIFactory4* factory;
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
 
-    if (m_useWarpDevice)
-    {
-        IDXGIAdapter* warpAdapter;
-        ThrowIfFailed(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
+    IDXGIAdapter1* hardwareAdapter;
+    GetHardwareAdapter(factory, &hardwareAdapter);
 
-        ThrowIfFailed(D3D12CreateDevice(
-            warpAdapter,
-            D3D_FEATURE_LEVEL_11_0,
-            IID_PPV_ARGS(&Graphics::Context.m_device)
-            ));
+#if defined DXR_ENABLED
+    ThrowIfFailed(D3D12CreateDevice(hardwareAdapter, D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device5), (void**)&m_device));
+#else
+    ThrowIfFailed(D3D12CreateDevice(hardwareAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
+#endif
 
-		warpAdapter->Release();
-    }
-    else
-    {
-        IDXGIAdapter1* hardwareAdapter;
-        GetHardwareAdapter(factory, &hardwareAdapter);
-
-        ThrowIfFailed(D3D12CreateDevice(
-            hardwareAdapter,
-            D3D_FEATURE_LEVEL_11_0,
-            IID_PPV_ARGS(&m_device)
-            ));
-
-		hardwareAdapter->Release();
-    }
+	hardwareAdapter->Release();
 
 	factory->Release();
+
+#if defined(_DEBUG)
+    ID3D12InfoQueue* d3dInfoQueue = nullptr;
+    ThrowIfFailed(m_device->QueryInterface(__uuidof(ID3D12InfoQueue), reinterpret_cast<void**>(&d3dInfoQueue)));
+
+    if (d3dInfoQueue)
+    {
+      /*  d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+        d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+        d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);*/
+
+        //block some warnings
+        D3D12_MESSAGE_ID blockedIds[] = 
+        {
+            D3D12_MESSAGE_ID_COPY_DESCRIPTORS_INVALID_RANGES 
+        };
+        D3D12_INFO_QUEUE_FILTER filter = {};
+        filter.DenyList.pIDList = blockedIds;
+        filter.DenyList.NumIDs = 1;
+        d3dInfoQueue->AddRetrievalFilterEntries(&filter);
+        d3dInfoQueue->AddStorageFilterEntries(&filter);
+
+        d3dInfoQueue->Release();
+    }
+#endif
 
     // Describe and create the command queue.
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -650,7 +662,7 @@ void FeaxRenderer::OnUpdate()
 	XMStoreFloat4(&shadowPassData.CameraPos, cameraPos);
 	shadowPassData.LightDir = ToFloat4(lightDir);
 	shadowPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
-	shadowPassData.CameraPos.w = (int)frameCount;
+	shadowPassData.CameraPos.w = (float)frameCount;
 
 	memcpy(m_shadowsCB->Map(), &shadowPassData, sizeof(shadowPassData));
 

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#if defined DXR
+#if defined DXR_ENABLED
 
 #include "DXR.h"
 #include "Renderables/Mesh.h"
@@ -15,7 +15,7 @@ namespace DXR
 {
 	void CreateAccelerationStructures()
 	{
-		ID3D12Device* device = Graphics::Context.m_device;
+		ID3D12Device5* device = (ID3D12Device5*) Graphics::Context.m_device;
 
 		//Create BLAS
 		{

@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined DXR
+#if defined DXR_ENABLED
 
 using namespace std;
 using namespace DirectX;
