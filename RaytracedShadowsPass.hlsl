@@ -96,7 +96,7 @@ float2 randomOnDisk(float2 uv)
 	rand.y = rand01(1-uv.yx);
 
 	float rho = sqrt(rand.x);
-	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w /(2* PI);
+	float phi = rand.y * 2 * PI + 0*gActivateRotation * cameraPos.w /(2* PI);
 
 	return rho * float2(cos(phi), sin(phi));
 }
@@ -137,7 +137,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		float3 lightPerpY = normalize(cross(lightDir.xyz, lightPerpX));
 
 		int w = 4;
-		float scale = 0.03;
+		float scale = 0.05;
 		//scale = 1;
 
 		for (int y = 0; y < w; y++)

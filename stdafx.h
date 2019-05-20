@@ -12,7 +12,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define DXR_ENABLED
+//#define DXR_ENABLED
 
 #include <windows.h>
 

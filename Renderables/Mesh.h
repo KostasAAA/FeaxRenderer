@@ -23,8 +23,11 @@ public:
 
 	uint GetNoofIndices(){ return m_noofIndices;  }
 
-	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
-	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+	ID3D12Resource* GetVertexBuffer() { return m_vertexBuffer; }
+	ID3D12Resource* GetIndexBuffer() { return m_indexBuffer; }
+
+	D3D12_VERTEX_BUFFER_VIEW& GetVertexBufferView() { return m_vertexBufferView; }
+	D3D12_INDEX_BUFFER_VIEW& GetIndexBufferView() { return m_indexBufferView; }
 
 private:
 	std::vector<Vertex> m_vertices;
@@ -34,6 +37,10 @@ private:
 
 	ID3D12Resource* m_vertexBuffer;
 	ID3D12Resource* m_indexBuffer;
+
+	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+
 };
 
 

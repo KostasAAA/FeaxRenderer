@@ -96,7 +96,8 @@ float2 randomOnDisk(float2 uv)
 	rand.y = rand01(1-uv.yx);
 
 	float rho = sqrt(rand.x);
-	float phi = rand.y * 2 * PI + 0*gActivateRotation * cameraPos.w /(2* PI);
+//	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w * PI/2;// / (2 * PI);
+	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w;
 
 	return rho * float2(cos(phi), sin(phi));
 }
@@ -136,8 +137,8 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		float3 lightPerpX = normalize(cross(lightDir.xyz, float3(0,1,0)));
 		float3 lightPerpY = normalize(cross(lightDir.xyz, lightPerpX));
 
-		int w = 4;
-		float scale = 0.05;
+		int w = 1;
+		float scale = 0.03;
 		//scale = 1;
 
 		for (int y = 0; y < w; y++)
@@ -149,9 +150,10 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 				float rx = scale * (rand01((DTid.yx + float2(x, y))* rtSize.zw)-0.5);
 #else
 				float2 pointOnDisk = randomOnDisk( uv + float2(x, y)* rtSize.zw );
+//				float2 pointOnDisk = randomOnDisk(worldPos.xz + float2(x, y)* rtSize.zw);
 
-				float ry = 0.5*scale * pointOnDisk.y;
-				float rx = 0.5*scale * pointOnDisk.x;
+				float ry = 0.5 * scale * pointOnDisk.y;
+				float rx = 0.5 * scale * pointOnDisk.x;
 #endif
 				rayDir = normalize(lightDir.xyz + rx * lightPerpX + ry * lightPerpY);
 
@@ -164,9 +166,9 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	float historyValue = shadowHistory[DTid.xy];
 
-	//if ( uv.x < 0.5)
-	//	outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.9);
-	//else
+	if ( uv.x < 0.5)
+		outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.95);
+	else
 		outputRT[DTid.xy] = shadowFactor;
 
 	//historyRT[DTid.xy] = 

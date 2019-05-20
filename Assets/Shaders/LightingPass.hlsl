@@ -39,8 +39,18 @@ Texture2D<float> shadowBuffer : register(t3);
 
 PSOutput PSMain(PSInput input)
 {
+	float gaussian[5][5] = 
+	{ 
+		{ 1,  4,  7,  4, 1 },
+		{ 4, 16, 26, 16, 4 },
+		{ 7, 26, 41, 26, 7 },
+		{ 4, 16, 26, 16, 4 },
+		{ 1,  4,  7,  4, 1 },
+	};
+
 	PSOutput output = (PSOutput)0;
 	float depth = depthBuffer[input.position.xy].x;
+
 	if (depth < 1)
 	{
 		float3 normal = normalBuffer[input.position.xy].rgb * 2 - 1;
@@ -49,15 +59,24 @@ PSOutput PSMain(PSInput input)
 		int w = 2;
 		float shadow = 0;
 
-		for(int y = -w; y <= w; y++ )
+		for (int y = -w; y <= w; y++)
+		{
 			for (int x = -w; x <= w; x++)
 			{
-				float sampleDepth = depthBuffer[input.position.xy + float2(x,y)].x;
+				float weight =  gaussian[x + w][y + w];
+				//float sampleDepth = depthBuffer[input.position.xy + float2(x, y)].x;
 
-				shadow += /* exp(-4*abs(sampleDepth-depth)) */  shadowBuffer[input.position.xy+float2(x, y)].r;
+				shadow += weight * shadowBuffer[input.position.xy + 1 * float2(x, y)].x;
 			}
+		}
+		shadow /= 273.0;
+		//shadow /= (2 * w + 1) * (2 * w + 1);
 
-		shadow /= (2 * w + 1) * (2 * w + 1);
+		//shadow =  shadowBuffer[input.position.xy ].x;
+
+		if (input.position.x >= 1280/2)
+			shadow = shadowBuffer[input.position.xy].x;
+
 
 		float3 lightDir = LightDirection.xyz;
 

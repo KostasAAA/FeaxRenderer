@@ -24,6 +24,7 @@ public:
 		uint m_descriptorType;
 		D3D12_RESOURCE_FLAGS m_resourceFlags;
 		D3D12_RESOURCE_STATES m_state;
+		D3D12_HEAP_TYPE m_heapType;
 
 		Description() :
 			m_noofElements(1)
@@ -32,7 +33,9 @@ public:
 			, m_descriptorType(Buffer::DescriptorType::SRV)
 			, m_format(DXGI_FORMAT_UNKNOWN)
 			, m_resourceFlags(D3D12_RESOURCE_FLAG_NONE)
-			, m_state(D3D12_RESOURCE_STATE_COMMON) {}
+			, m_state(D3D12_RESOURCE_STATE_COMMON)
+			, m_heapType(D3D12_HEAP_TYPE_DEFAULT)
+		{}
 	};
 
 	Buffer(Description& description, LPCWSTR name = nullptr, unsigned char *data = nullptr);

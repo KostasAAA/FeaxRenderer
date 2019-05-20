@@ -120,7 +120,6 @@ private:
     ID3D12CommandAllocator* m_commandAllocator;
     ID3D12CommandQueue* m_commandQueue;
 	ID3D12DescriptorHeap* m_dsvHeap;
-	ID3D12DescriptorHeap* m_cbvHeap;
 	ID3D12DescriptorHeap* m_srvHeap;
 	ID3D12GraphicsCommandList* m_commandList;
 	ID3D12DescriptorHeap*  m_UISrvDescHeap;
@@ -135,8 +134,6 @@ private:
 	SceneConstantBuffer m_constantBufferData;
 	Texture* m_texture;
 	Texture* m_texture2;
-
-	Scene	m_scene;
 
 	ID3D12Resource* m_fullscreenVertexBuffer;
 	ID3D12Resource* m_fullscreenVertexBufferUpload;

@@ -38,9 +38,6 @@ void FeaxRenderer::LoadPipeline()
 {
     UINT dxgiFactoryFlags = 0;
 
-
-
-
 #if defined(_DEBUG)
     // Enable the debug layer (requires the Graphics Tools "optional feature").
     // NOTE: Enabling the debug layer after device creation will invalidate the active device.
@@ -134,26 +131,6 @@ void FeaxRenderer::LoadPipeline()
 
 	Graphics::Context.m_device = m_device;
 	Graphics::Context.m_descriptorManager = new DescriptorHeapManager();
-
-	// Create descriptor heaps.
-    {
-
-		// Describe and create a depth stencil view (DSV) descriptor heap.
-		//D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-		//dsvHeapDesc.NumDescriptors = 1;
-		//dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-		//dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		//ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
-
-		// Describe and create a constant buffer view (CBV) descriptor heap.
-		// Flags indicate that this descriptor heap can be bound to the pipeline 
-		// and that descriptors contained in it can be referenced by a root table.
-		D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-		cbvHeapDesc.NumDescriptors = 1;
-		cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
-    }
 
     // Create frame resources.
     {
@@ -457,20 +434,24 @@ void FeaxRenderer::LoadAssets()
 
 	Graphics::Context.m_commandList = m_commandList;
 
+	Scene* scene = new Scene();
+
+	Graphics::Context.m_scene = scene;
+
 	//load meshes
 	{
 		Model* model = modelLoader.Load(m_device, string("Assets\\Meshes\\statue.obj"));
 		XMMATRIX objectToWorld = XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f));
 
-		m_scene.AddModelInstance(new ModelInstance(model, objectToWorld));
+		scene->AddModelInstance(new ModelInstance(model, objectToWorld));
 
 		model = new Model(Mesh::CreatePlane(m_device));
 
 		objectToWorld = XMMatrixScaling(2, 1, 2);
 
-		m_scene.AddModelInstance(new ModelInstance(model, objectToWorld));
+		scene->AddModelInstance(new ModelInstance(model, objectToWorld));
 
-		BVH::CreateBVHBuffer(&m_scene);
+		BVH::CreateBVHBuffer(Graphics::Context.m_scene);
 	}
 
 	//create full triangle resources
@@ -624,27 +605,47 @@ void FeaxRenderer::OnUpdate()
 	static float frameCount = 0;
 	static float rot = 0;
 
+	static float distance = 1;
+	static float rotY = 0;
+	static float rotX = 0;
+
+	if (IsKeyPressed('A'))
+		rotY += 0.02f;
+	else if (IsKeyPressed('D'))
+		rotY -= 0.02f;
+
+	if (IsKeyPressed('W'))
+		rotX += 0.02f;
+	else if (IsKeyPressed('S'))
+		rotX -= 0.02f;
+
+	if (IsKeyPressed('Q'))
+		distance += 0.02f;
+	else if (IsKeyPressed('E'))
+		distance -= 0.02f;
+
+	XMMATRIX rotationY = XMMatrixRotationY(rotY);
+	XMMATRIX rotationX = XMMatrixRotationX(rotX);
+
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMVECTOR cameraPos = XMVectorSet( 7.0f, 1.5f, -7.0f, 0.0f);
+	XMVECTOR cameraPos = XMVectorSet(7.0f, 1.5f, -7.0f, 0.0f);
 	XMVECTOR cameraLookAt = XMVectorSet(0.0f, 0.5f, 0.0f, 0.0f);
 
 	float fieldOfViewY = 3.141592654f / 4.0f;
 
+	cameraPos = cameraPos * distance;
+	cameraPos = XMVector4Transform(cameraPos, rotationY);
+	cameraPos = XMVector4Transform(cameraPos, rotationX);
+
 	XMMATRIX view = XMMatrixLookAtLH(cameraPos, cameraLookAt, up);
 
-	XMMATRIX projection = XMMatrixPerspectiveFovLH(fieldOfViewY, m_width / (float)m_height, 1.0f, 200.0f);
+	XMMATRIX projection = XMMatrixPerspectiveFovLH(fieldOfViewY, m_width / (float)m_height, 0.1f, 200.0f);
 
-	if (IsKeyPressed('A'))
-		rot += 0.04f;
-	else if (IsKeyPressed('S'))
-		rot -= 0.04f;
-
-	XMMATRIX rotation = XMMatrixRotationY(rot);
-
-		XMVECTOR lightDir = XMVectorSet(1, 1, 1, 0);
+	XMVECTOR lightDir = XMVectorSet(1, 1, 1, 0);
 	lightDir = XMVector3Normalize(lightDir);
 
-	lightDir = XMVector4Transform(lightDir, rotation);
+//	XMMATRIX rotation;
+	//lightDir = XMVector4Transform(lightDir, rotation);
 
 	XMMATRIX viewProjection = view * projection;
 
@@ -662,7 +663,11 @@ void FeaxRenderer::OnUpdate()
 	XMStoreFloat4(&shadowPassData.CameraPos, cameraPos);
 	shadowPassData.LightDir = ToFloat4(lightDir);
 	shadowPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
-	shadowPassData.CameraPos.w = (float)frameCount;
+//	shadowPassData.CameraPos.w = (float)((int)frameCount % 2)?1:0;
+
+#define PI 3.14159265359f
+
+	shadowPassData.CameraPos.w = (float)((int)frameCount % 360)/ (2 * PI);
 
 	memcpy(m_shadowsCB->Map(), &shadowPassData, sizeof(shadowPassData));
 
@@ -711,14 +716,8 @@ void FeaxRenderer::OnDestroy()
 	m_commandAllocator->Release();
 	m_commandQueue->Release();
 	m_dsvHeap->Release();
-	m_cbvHeap->Release();
 	m_srvHeap->Release();
-	//m_pipelineStateGPrepass->Release();
-	//m_pipelineStateCopyRT->Release();
 	m_commandList->Release();
-	//m_rootSignature->Release();
-	//m_copyRTRootSignature->Release();
-
 	m_fullscreenVertexBuffer->Release();
 	m_fullscreenVertexBufferUpload->Release();
 
@@ -726,6 +725,9 @@ void FeaxRenderer::OnDestroy()
 	delete m_shadowsCB;
 
 	m_UISrvDescHeap->Release();
+
+	delete Graphics::Context.m_scene;
+	Graphics::Context.m_scene = nullptr;
 
 	delete Graphics::Context.m_descriptorManager;
 	Graphics::Context.m_descriptorManager = nullptr;
@@ -766,6 +768,8 @@ void FeaxRenderer::PopulateCommandList()
 	{
 		//gbuffer pass
 		{
+			Scene* scene = Graphics::Context.m_scene;
+
 			m_commandList->SetGraphicsRootSignature(m_gBUfferRS.GetSignature());
 
 			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(1);
@@ -805,14 +809,14 @@ void FeaxRenderer::PopulateCommandList()
 			m_commandList->ClearRenderTargetView(rtvHandles[1], clearNormal, 0, nullptr);
 			m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-			m_scene.GetModelInstances()[0]->GetModel()->Render(m_commandList);
+			scene->GetModelInstances()[0]->GetModel()->Render(m_commandList);
 
 			srvHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_texture2->GetSRV());
 
 			m_commandList->SetGraphicsRootDescriptorTable(1, srvHandle.GetGPUHandle());
 
-			m_scene.GetModelInstances()[1]->GetModel()->Render(m_commandList);
+			scene->GetModelInstances()[1]->GetModel()->Render(m_commandList);
 
 			//transition rendertargets to shader resources 
 			ResourceBarrierBegin(Graphics::Context);
@@ -823,10 +827,12 @@ void FeaxRenderer::PopulateCommandList()
 
 		//raytraced shadows pass
 		{
+			Scene* scene = Graphics::Context.m_scene;
+
 			m_commandList->SetPipelineState(m_shadowsPSO.GetPipelineStateObject());
 			m_commandList->SetComputeRootSignature(m_shadowsRS.GetSignature());
 
-			Buffer *bvh = m_scene.GetBVHBuffer();
+			Buffer *bvh = scene->GetBVHBuffer();
 
 			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(cbvHandle, m_shadowsCB->GetCBV());

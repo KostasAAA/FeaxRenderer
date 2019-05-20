@@ -4,10 +4,6 @@
 #include "..\Resources\Texture.h"
 #include "..\DXSample.h"
 
-Model::Model(ID3D12Device* device)
-{
-}
-
 Model::~Model()
 {
 	for (Mesh *mesh : m_meshes)
@@ -22,8 +18,8 @@ void Model::Render(ID3D12GraphicsCommandList* commandList)
 	
 	for (Mesh *mesh : m_meshes)
 	{
-		commandList->IASetVertexBuffers(0, 1, &mesh->m_vertexBufferView);
-		commandList->IASetIndexBuffer(&mesh->m_indexBufferView);
+		commandList->IASetVertexBuffers(0, 1, &mesh->GetVertexBufferView());
+		commandList->IASetIndexBuffer(&mesh->GetIndexBufferView());
 		commandList->DrawIndexedInstanced(mesh->GetNoofIndices(), 1, 0, 0, 0);
 	}
 }

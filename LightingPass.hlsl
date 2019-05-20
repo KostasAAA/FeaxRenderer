@@ -54,7 +54,7 @@ PSOutput PSMain(PSInput input)
 			{
 				float sampleDepth = depthBuffer[input.position.xy + float2(x,y)].x;
 
-				shadow +=/* exp(1-abs(sampleDepth-depth)) */ shadowBuffer[input.position.xy+float2(x, y)].r;
+				shadow += /* exp(-4*abs(sampleDepth-depth)) */  shadowBuffer[input.position.xy+float2(x, y)].r;
 			}
 
 		shadow /= (2 * w + 1) * (2 * w + 1);
