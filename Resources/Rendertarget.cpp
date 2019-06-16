@@ -5,11 +5,10 @@
 #include "..\DXSample.h"
 
 
-Rendertarget::Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, int noofRTs, XMFLOAT4 clearColour, LPCWSTR name)
+Rendertarget::Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags,  XMFLOAT4 clearColour, LPCWSTR name)
 : m_width(width)
 , m_height(height)
 , m_format(format)
-, m_nooRTs(noofRTs)
 , m_flags(flags)
 , m_clearColour(clearColour)
 {
@@ -30,14 +29,10 @@ Rendertarget::Rendertarget( IDXGISwapChain3* m_swapChain, LPCWSTR name)
 	m_format = desc.BufferDesc.Format;
 	m_flags = (D3D12_RESOURCE_FLAGS)desc.Flags;
 
-	for (UINT n = 0; n < m_nooRTs; n++)
-	{
-		ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_rendertarget[n])));
+	ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_rendertarget)));
 
-		m_rendertarget[n]->SetName(name);
-
-		m_currentState[n] = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	}
+	m_rendertarget->SetName(name);
+	m_currentState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
 	CreateDescriptors();
 }
@@ -67,20 +62,17 @@ void Rendertarget::CreateResources(LPCWSTR name)
 	optimizedClearValue.Color[2] = m_clearColour.z;
 	optimizedClearValue.Color[3] = m_clearColour.w;
 
-	for (UINT i = 0; i < Graphics::FrameCount; i++)
-	{
-		m_currentState[i] = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	m_currentState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
-		ThrowIfFailed(device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE,
-			&textureDesc,
-			m_currentState[i],
-			&optimizedClearValue,
-			IID_PPV_ARGS(&m_rendertarget[i])));
+	ThrowIfFailed(device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&textureDesc,
+		m_currentState,
+		&optimizedClearValue,
+		IID_PPV_ARGS(&m_rendertarget)));
 
-		m_rendertarget[i]->SetName(name);
-	}
+	m_rendertarget->SetName(name);
 }
 
 void Rendertarget::CreateDescriptors()
@@ -105,35 +97,29 @@ void Rendertarget::CreateDescriptors()
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Texture2D.MipSlice = 0;
 
-	for (UINT i = 0; i < Graphics::FrameCount; i++)
+	m_rtvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	device->CreateRenderTargetView(m_rendertarget, &rtvDesc, m_rtvHandle.GetCPUHandle());
+
+	m_srvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	device->CreateShaderResourceView(m_rendertarget, &srvDesc, m_srvHandle.GetCPUHandle());
+
+	if (m_flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
 	{
-		m_rtvHandle[i] = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		device->CreateRenderTargetView(m_rendertarget[i], &rtvDesc, m_rtvHandle[i].GetCPUHandle());
-
-		m_srvHandle[i] = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		device->CreateShaderResourceView(m_rendertarget[i], &srvDesc, m_srvHandle[i].GetCPUHandle());
-
-		if (m_flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
-		{
-			m_uavHandle[i] = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-			device->CreateUnorderedAccessView(m_rendertarget[i], nullptr, &uavDesc, m_uavHandle[i].GetCPUHandle());
-		}
+		m_uavHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		device->CreateUnorderedAccessView(m_rendertarget, nullptr, &uavDesc, m_uavHandle.GetCPUHandle());
 	}
 }
 
 Rendertarget::~Rendertarget()
 {
-	for ( UINT i = 0 ; i < m_nooRTs; i++)
-		m_rendertarget[i]->Release();
+	m_rendertarget->Release();
 }
 
 void Rendertarget::TransitionTo(GraphicsContext& context, D3D12_RESOURCE_STATES stateAfter)
 {
-	const unsigned int frameID = context.m_frameIndex;
-
-	if (stateAfter != m_currentState[frameID])
+	if (stateAfter != m_currentState)
 	{
-		context.m_barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(GetResource(), m_currentState[frameID], stateAfter));
-		m_currentState[frameID] = stateAfter;
+		context.m_barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(GetResource(), m_currentState, stateAfter));
+		m_currentState = stateAfter;
 	}
 }

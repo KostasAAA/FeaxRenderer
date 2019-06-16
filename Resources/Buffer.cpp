@@ -53,7 +53,7 @@ void Buffer::CreateResources()
 										&heapProperties,
 										D3D12_HEAP_FLAG_NONE,
 										&desc,
-										D3D12_RESOURCE_STATE_GENERIC_READ,
+										m_description.m_state,
 										nullptr,
 										IID_PPV_ARGS(&m_buffer)
 										)
@@ -90,11 +90,20 @@ void Buffer::CreateResources()
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = m_description.m_format;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		srvDesc.Buffer.NumElements = m_description.m_noofElements;
-		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		if (m_description.m_state == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)
+		{
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+			srvDesc.RaytracingAccelerationStructure.Location = m_buffer->GetGPUVirtualAddress();
+			device->CreateShaderResourceView(nullptr, &srvDesc, m_srvHandle.GetCPUHandle());
+		}
+		else
+		{
+			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+			srvDesc.Buffer.NumElements = m_description.m_noofElements;
+			srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			device->CreateShaderResourceView(m_buffer, &srvDesc, m_srvHandle.GetCPUHandle());
+		}
 
-		device->CreateShaderResourceView(m_buffer, &srvDesc, m_srvHandle.GetCPUHandle());
 	}
 
 	if (m_description.m_descriptorType & DescriptorType::CBV)

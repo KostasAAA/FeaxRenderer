@@ -18,7 +18,11 @@ public:
 	struct Description
 	{
 		uint m_noofElements;
-		uint m_elementSize;
+		union
+		{
+			uint m_elementSize;
+			uint m_size;
+		};
 		uint64 m_alignment;
 		DXGI_FORMAT m_format;
 		uint m_descriptorType;

@@ -12,7 +12,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-//#define DXR_ENABLED
+#define DXR_ENABLED
 
 #include <windows.h>
 
@@ -34,6 +34,10 @@
 
 #include "GraphicsContext.h"
 #include "Resources\Graphics.h"
+
+#if defined DXR_ENABLED
+#include <dxc/dxcapi.use.h>
+#endif
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;

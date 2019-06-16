@@ -843,7 +843,7 @@ void FeaxRenderer::PopulateCommandList()
 			gpuDescriptorHeap->AddToHandle(srvHandle, bvh->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_shadowsHistoryRT->GetSRV());
 
-			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(2);
+			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_shadowsRT->GetUAV());
 
 			m_commandList->SetComputeRootDescriptorTable(0, cbvHandle.GetGPUHandle());

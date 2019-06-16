@@ -4,26 +4,26 @@ class Rendertarget
 {
 public:
 
-	Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, int noofRTs = 1, XMFLOAT4 clearColour = { 0.0f,0.0f,0.0f,0.0f }, LPCWSTR name = L"Unknown RT");
+	Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, XMFLOAT4 clearColour = { 0.0f,0.0f,0.0f,0.0f }, LPCWSTR name = L"Unknown RT");
 	Rendertarget(IDXGISwapChain3* m_swapChain, LPCWSTR name = L"Unknown RT");
 	Rendertarget() {}
 	virtual ~Rendertarget();
 
-	ID3D12Resource* GetResource() { return m_rendertarget[Graphics::Context.m_frameIndex]; }
+	ID3D12Resource* GetResource() { return m_rendertarget; }
 
 	DescriptorHandle& GetRTV()
 	{
-		return m_rtvHandle[Graphics::Context.m_frameIndex];
+		return m_rtvHandle;
 	}
 
 	DescriptorHandle& GetSRV()
 	{
-		return m_srvHandle[Graphics::Context.m_frameIndex];
+		return m_srvHandle;
 	}
 
 	DescriptorHandle& GetUAV()
 	{
-		return m_uavHandle[Graphics::Context.m_frameIndex];
+		return m_uavHandle;
 	}
 
 	DXGI_FORMAT GetFormat() { return m_format; }
@@ -39,12 +39,12 @@ private:
 
 	XMFLOAT4 m_clearColour;
 
-	D3D12_RESOURCE_STATES m_currentState[Graphics::FrameCount];
-	ID3D12Resource* m_rendertarget[Graphics::FrameCount];
+	D3D12_RESOURCE_STATES m_currentState;
+	ID3D12Resource* m_rendertarget;
 
-	DescriptorHandle m_rtvHandle[Graphics::FrameCount];
-	DescriptorHandle m_srvHandle[Graphics::FrameCount];
-	DescriptorHandle m_uavHandle[Graphics::FrameCount];
+	DescriptorHandle m_rtvHandle;
+	DescriptorHandle m_srvHandle;
+	DescriptorHandle m_uavHandle;
 
 	void CreateResources(LPCWSTR name);
 	void CreateDescriptors();

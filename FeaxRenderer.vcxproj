@@ -116,6 +116,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BVH.h" />
+    <ClInclude Include="dxc\dxcapi.h" />
+    <ClInclude Include="dxc\dxcapi.use.h" />
     <ClInclude Include="DXR.h" />
     <ClInclude Include="FeaxRenderer.h" />
     <ClInclude Include="GraphicsContext.h" />
@@ -139,6 +141,7 @@
     <ClInclude Include="Resources\Rendertarget.h" />
     <ClInclude Include="Resources\RootSignature.h" />
     <ClInclude Include="Resources\Texture.h" />
+    <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="d3dx12.h" />
@@ -167,6 +170,7 @@
     <ClCompile Include="Resources\Rendertarget.cpp" />
     <ClCompile Include="Resources\RootSignature.cpp" />
     <ClCompile Include="Resources\Texture.cpp" />
+    <ClCompile Include="ShaderCompiler.cpp" />
     <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="Main.cpp" />

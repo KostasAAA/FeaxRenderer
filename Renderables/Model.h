@@ -74,6 +74,25 @@ private:
 class Scene
 {
 public:
+	struct DXR
+	{
+		Buffer*			m_tlasBuffer;
+		RootSignature	m_raygenRS;
+		RootSignature	m_closestHitRS;
+		RootSignature	m_missRS;
+		IDxcBlob*		m_raygenBlob;
+		IDxcBlob*		m_closestHitBlob;
+		IDxcBlob*		m_missBlob;
+
+		Buffer*			m_shaderTableBuffer;
+		uint			m_shaderTableEntrySize;
+		
+		GPUDescriptorHeap* m_descriptorHeap;
+
+		ID3D12StateObject*	m_rtPSO;
+		ID3D12StateObjectProperties* m_rtpsoInfo;
+	};
+
 	Scene() {}
 	~Scene() {}
 
@@ -104,15 +123,18 @@ public:
 	void SetBVHBuffer(Buffer* buffer) { m_bvhBuffer = buffer; }
 	Buffer* GetBVHBuffer() { return m_bvhBuffer; }
 
-	void SetTLASBuffer(Buffer* buffer) { m_tlasBuffer = buffer; }
-	Buffer* GetTLASBuffer() { return m_tlasBuffer; }
+	void SetTLASBuffer(Buffer* buffer) { m_dxr.m_tlasBuffer = buffer; }
+	Buffer* GetTLASBuffer() { return m_dxr.m_tlasBuffer; }
+
+	DXR& GetDXRData() { return m_dxr; }
 
 private:
 	AABB						m_aabox;
 	std::vector<ModelInstance*> m_modelInstances;
 	std::vector<Model*>			m_models;
 	Buffer*						m_bvhBuffer;
-	Buffer*						m_tlasBuffer;
+
+	DXR							m_dxr;
 };
 
 

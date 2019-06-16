@@ -81,9 +81,6 @@
     <ClInclude Include="BVH.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="Maths.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="Resources\Buffer.h">
       <Filter>Resources</Filter>
     </ClInclude>
@@ -112,6 +109,18 @@
       <Filter>ImGUI</Filter>
     </ClInclude>
     <ClInclude Include="DXR.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dxc\dxcapi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dxc\dxcapi.use.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Maths.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderCompiler.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -186,6 +195,9 @@
       <Filter>ImGUI</Filter>
     </ClCompile>
     <ClCompile Include="DXR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ShaderCompiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
