@@ -133,8 +133,9 @@ void FeaxRenderer::LoadPipeline()
 	Graphics::Context.m_descriptorManager = new DescriptorHeapManager();
 
     // Create frame resources.
+	for(int i = 0 ; i < FrameCount; i++)
     {
-		m_backbuffer = new Rendertarget( m_swapChain, L"Backbuffer");
+		m_backbuffer[i] = new Rendertarget( m_swapChain, i, L"Backbuffer");
     }
 
     ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
@@ -200,8 +201,8 @@ void FeaxRenderer::LoadAssets()
 		XMFLOAT4 clearNormal = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 		//rendertargets
-		m_gbufferRT[GBuffer::Albedo] = new Rendertarget(m_width, m_height, DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, FrameCount, clearColour, L"GBuffer RT");
-		m_gbufferRT[GBuffer::Normal] = new Rendertarget( m_width, m_height, DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, FrameCount, clearNormal, L"Normals RT");
+		m_gbufferRT[GBuffer::Albedo] = new Rendertarget(m_width, m_height, DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, clearColour, L"GBuffer RT");
+		m_gbufferRT[GBuffer::Normal] = new Rendertarget( m_width, m_height, DXGI_FORMAT_R8G8B8A8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, clearNormal, L"Normals RT");
 
 		// root signature
 		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
@@ -260,8 +261,8 @@ void FeaxRenderer::LoadAssets()
 		XMFLOAT4 clearColour = { 0,0,0,0 };
 
 		//create rendertargets
-		m_shadowsRT = new Rendertarget(m_width, m_height, DXGI_FORMAT_R8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, FrameCount, clearColour, L"Raytraced Shadows RT");
-		m_shadowsHistoryRT = new Rendertarget(m_width, m_height, DXGI_FORMAT_R8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, FrameCount, clearColour, L"Raytraced Shadows History RT");
+		m_shadowsRT = new Rendertarget(m_width, m_height, DXGI_FORMAT_R8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, clearColour, L"Raytraced Shadows RT");
+		m_shadowsHistoryRT = new Rendertarget(m_width, m_height, DXGI_FORMAT_R8_UNORM, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, clearColour, L"Raytraced Shadows History RT");
 
 		//create root signature
 		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
@@ -296,8 +297,8 @@ void FeaxRenderer::LoadAssets()
 		XMFLOAT4 clearColour = { 0,0,0,0 };
 
 		//create rendertargets
-		m_lightingRT[Lighting::Diffuse] = new Rendertarget( m_width, m_height, DXGI_FORMAT_R11G11B10_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, FrameCount, clearColour, L"Light Diffuse RT");
-		m_lightingRT[Lighting::Specular] = new Rendertarget( m_width, m_height, DXGI_FORMAT_R11G11B10_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, FrameCount, clearColour, L"Light Specular RT");
+		m_lightingRT[Lighting::Diffuse] = new Rendertarget( m_width, m_height, DXGI_FORMAT_R11G11B10_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, clearColour, L"Light Diffuse RT");
+		m_lightingRT[Lighting::Specular] = new Rendertarget( m_width, m_height, DXGI_FORMAT_R11G11B10_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, clearColour, L"Light Specular RT");
 
 		//create root signature
 		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
@@ -354,7 +355,7 @@ void FeaxRenderer::LoadAssets()
 		XMFLOAT4 clearColour = { 0,0,0,0 };
 
 		//create rendertargets
-		m_mainRT = new Rendertarget( m_width, m_height, DXGI_FORMAT_R11G11B10_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, FrameCount, clearColour, L"Light Diffuse RT");
+		m_mainRT = new Rendertarget( m_width, m_height, DXGI_FORMAT_R11G11B10_FLOAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET,  clearColour, L"Light Diffuse RT");
 
 		//create root signature
 		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
@@ -424,7 +425,7 @@ void FeaxRenderer::LoadAssets()
 		m_tonemappingPSO = m_mainPSO;
 
 		m_tonemappingPSO.SetRootSignature(m_tonemappingRS);
-		m_tonemappingPSO.SetRenderTargetFormat(m_backbuffer->GetFormat(), DXGI_FORMAT_D32_FLOAT);
+		m_tonemappingPSO.SetRenderTargetFormat(m_backbuffer[m_frameIndex]->GetFormat(), DXGI_FORMAT_D32_FLOAT);
 		m_tonemappingPSO.SetVertexShader(vertexShader->GetBufferPointer(), vertexShader->GetBufferSize());
 		m_tonemappingPSO.SetPixelShader(pixelShader->GetBufferPointer(), pixelShader->GetBufferSize());
 		m_tonemappingPSO.Finalize(m_device);
@@ -706,7 +707,11 @@ void FeaxRenderer::OnDestroy()
 	m_device->Release();
 	m_depthStencil->Release();
 
-	delete m_backbuffer;
+	for (int i = 0; i < FrameCount; i++)
+	{
+		delete m_backbuffer[i];
+	}
+
 	for ( int i = 0 ; i < GBuffer::Noof;i++)
 		delete m_gbufferRT[i];
 
@@ -744,6 +749,9 @@ void FeaxRenderer::PopulateCommandList()
 	Graphics::Context.m_device = m_device;
 	Graphics::Context.m_commandList = m_commandList;
 	Graphics::Context.m_frameIndex = m_frameIndex;
+	Graphics::Context.m_shadowsCB = m_shadowsCB;
+	Graphics::Context.m_shadowsRT = m_shadowsRT;
+
 
 	DescriptorHeapManager* descriptorManager = Graphics::Context.m_descriptorManager;
 
@@ -786,7 +794,7 @@ void FeaxRenderer::PopulateCommandList()
 			ResourceBarrierBegin(Graphics::Context);
 			m_gbufferRT[GBuffer::Albedo]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			m_gbufferRT[GBuffer::Normal]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
-			m_backbuffer->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			m_backbuffer[m_frameIndex]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			m_lightingRT[Lighting::Diffuse]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			m_lightingRT[Lighting::Specular]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			m_mainRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -944,7 +952,7 @@ void FeaxRenderer::PopulateCommandList()
 		{
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] =
 			{
-				m_backbuffer->GetRTV().GetCPUHandle()
+				m_backbuffer[m_frameIndex]->GetRTV().GetCPUHandle()
 			};
 
 			m_commandList->OMSetRenderTargets(_countof(rtvHandles), rtvHandles, FALSE, nullptr);
@@ -974,7 +982,7 @@ void FeaxRenderer::PopulateCommandList()
 
 		// Indicate that the back buffer will now be used to present.
 		ResourceBarrierBegin(Graphics::Context);
-		m_backbuffer->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PRESENT);
+		m_backbuffer[m_frameIndex]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PRESENT);
 		ResourceBarrierEnd(Graphics::Context);
 	}
 

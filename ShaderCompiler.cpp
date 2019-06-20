@@ -1,4 +1,6 @@
 #include "stdafx.h"
+
+#include "dxc/dxcapi.use.h"
 #include"ShaderCompiler.h"
 
 namespace ShaderCompiler
@@ -23,7 +25,7 @@ namespace ShaderCompiler
 		ThrowIfFailed( Library->CreateBlobFromFile(filename, &codePage, &shaderSource) );
 
 		// Create the compiler include handler
-		CComPtr<IDxcIncludeHandler> dxcIncludeHandler;
+		IDxcIncludeHandler* dxcIncludeHandler;
 		ThrowIfFailed( Library->CreateIncludeHandler(&dxcIncludeHandler));
 
 		// Compile the shader
@@ -51,5 +53,7 @@ namespace ShaderCompiler
 		}
 
 		ThrowIfFailed( result->GetResult(blob) );
+
+		dxcIncludeHandler->Release();
 	}
 }

@@ -1,7 +1,8 @@
 #include "stdafx.h"
 
-#if 1// defined DXR_ENABLED
+#if defined DXR_ENABLED
 
+#include "dxc/dxcapi.use.h"
 #include "ModelLoader.h"
 #include "DXR.h"
 #include "Renderables/Model.h"
@@ -9,6 +10,7 @@
 #include "Renderables/Mesh.h"
 #include "Resources/RootSignature.h"
 #include "Resources/Buffer.h"
+#include "Resources/Rendertarget.h"
 #include "ShaderCompiler.h"
 #include <algorithm>
 #include <vector>
@@ -61,14 +63,14 @@ namespace DXR
 				// Create the BLAS scratch buffer
 				Buffer::Description blasdesc;
 				blasdesc.m_alignment = max(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
-				blasdesc.m_size = ASPreBuildInfo.ScratchDataSizeInBytes;
+				blasdesc.m_size = (uint)ASPreBuildInfo.ScratchDataSizeInBytes;
 				blasdesc.m_state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 				blasdesc.m_descriptorType = Buffer::DescriptorType::UAV;
 
 				Buffer* blasScratchBuffer = new Buffer(blasdesc, L"BLAS Scratch Buffer");
 
 				// Create the BLAS buffer
-				blasdesc.m_elementSize = ASPreBuildInfo.ResultDataMaxSizeInBytes;
+				blasdesc.m_elementSize = (uint)ASPreBuildInfo.ResultDataMaxSizeInBytes;
 				blasdesc.m_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
 
 				Buffer* blasBuffer = new Buffer(blasdesc, L"BLAS Buffer");
@@ -151,7 +153,7 @@ namespace DXR
 			// Create TLAS scratch buffer
 			Buffer::Description tlasDesc;
 			tlasDesc.m_alignment = max(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
-			tlasDesc.m_elementSize = ASPreBuildInfo.ScratchDataSizeInBytes;
+			tlasDesc.m_elementSize = (uint)ASPreBuildInfo.ScratchDataSizeInBytes;
 			tlasDesc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
 			tlasDesc.m_resourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 			tlasDesc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::UAV;
@@ -159,7 +161,7 @@ namespace DXR
 			Buffer* tlasScratchBuffer = new Buffer(tlasDesc, L"TLAS Scratch Buffer");
 
 			// Create the TLAS buffer
-			tlasDesc.m_elementSize = ASPreBuildInfo.ResultDataMaxSizeInBytes;
+			tlasDesc.m_elementSize = (uint)ASPreBuildInfo.ResultDataMaxSizeInBytes;
 			tlasDesc.m_state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
 
 			Buffer* tlasBuffer = new Buffer(tlasDesc, L"TLAS Buffer");
@@ -416,15 +418,15 @@ namespace DXR
 
 		// Get the descriptor heap handle and increment size
 		DescriptorHandle handle = dxr.m_descriptorHeap->GetHandleBlock(1); 
-		gpuDescriptorHeap->AddToHandle(handle, m_shadowsCB->GetCBV());
+		dxr.m_descriptorHeap->AddToHandle(handle, Graphics::Context.m_shadowsCB->GetCBV());
 
 		// Create the DXR output buffer UAV
 		handle = dxr.m_descriptorHeap->GetHandleBlock(1); 
-		gpuDescriptorHeap->AddToHandle(handle, m_shadowsRT->GetUAV());
+		dxr.m_descriptorHeap->AddToHandle(handle, Graphics::Context.m_shadowsRT->GetUAV());
 
 		// Create the DXR Top Level Acceleration Structure SRV
 		handle = dxr.m_descriptorHeap->GetHandleBlock(1);
-		gpuDescriptorHeap->AddToHandle(handle, dxr.m_tlasBuffer->GetSRV());
+		dxr.m_descriptorHeap->AddToHandle(handle, dxr.m_tlasBuffer->GetSRV());
 	}
 
 	void CreateShaderTable()

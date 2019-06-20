@@ -5,7 +5,7 @@ class Rendertarget
 public:
 
 	Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, XMFLOAT4 clearColour = { 0.0f,0.0f,0.0f,0.0f }, LPCWSTR name = L"Unknown RT");
-	Rendertarget(IDXGISwapChain3* m_swapChain, LPCWSTR name = L"Unknown RT");
+	Rendertarget(IDXGISwapChain3* m_swapChain, int index = 0, LPCWSTR name = L"Unknown RT");
 	Rendertarget() {}
 	virtual ~Rendertarget();
 

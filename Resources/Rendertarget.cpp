@@ -16,7 +16,7 @@ Rendertarget::Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESO
 	CreateDescriptors();
 }
 
-Rendertarget::Rendertarget( IDXGISwapChain3* m_swapChain, LPCWSTR name)
+Rendertarget::Rendertarget( IDXGISwapChain3* m_swapChain, int index, LPCWSTR name)
 {
 	ID3D12Device* device = Graphics::Context.m_device;
 
@@ -29,7 +29,7 @@ Rendertarget::Rendertarget( IDXGISwapChain3* m_swapChain, LPCWSTR name)
 	m_format = desc.BufferDesc.Format;
 	m_flags = (D3D12_RESOURCE_FLAGS)desc.Flags;
 
-	ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_rendertarget)));
+	ThrowIfFailed(m_swapChain->GetBuffer(index, IID_PPV_ARGS(&m_rendertarget)));
 
 	m_rendertarget->SetName(name);
 	m_currentState = D3D12_RESOURCE_STATE_RENDER_TARGET;

@@ -1,7 +1,11 @@
 #pragma once
 
+#include "..\Resources\RootSignature.h"
+
 class Mesh;
 class Buffer;
+struct IDxcBlob;
+class GPUDescriptorHeap;
 
 class Model
 {

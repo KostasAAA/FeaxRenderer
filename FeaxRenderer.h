@@ -113,7 +113,7 @@ private:
 	RootSignature	m_mainRS;
 
 	//tonemapping pass
-	Rendertarget*	m_backbuffer;
+	Rendertarget*	m_backbuffer[Graphics::FrameCount];
 	GraphicsPSO		m_tonemappingPSO;
 	RootSignature	m_tonemappingRS;
 
