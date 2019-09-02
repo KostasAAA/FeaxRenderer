@@ -73,13 +73,17 @@ void GraphicsPSO::SetRenderTargetFormat( DXGI_FORMAT RTVFormat, DXGI_FORMAT DSVF
     SetRenderTargetFormats(1, &RTVFormat, DSVFormat, MsaaCount, MsaaQuality );
 }
 
-void GraphicsPSO::SetRenderTargetFormats( UINT NumRTVs, const DXGI_FORMAT* RTVFormats, DXGI_FORMAT DSVFormat, UINT MsaaCount, UINT MsaaQuality )
+void GraphicsPSO::SetRenderTargetFormats(UINT NumRTVs, const DXGI_FORMAT* RTVFormats, DXGI_FORMAT DSVFormat, UINT MsaaCount, UINT MsaaQuality)
 {
 	assert(NumRTVs == 0 || RTVFormats != nullptr);// , "Null format array conflicts with non-zero length");
-    for (UINT i = 0; i < NumRTVs; ++i)
-        m_PSODesc.RTVFormats[i] = RTVFormats[i];
-    for (UINT i = NumRTVs; i < m_PSODesc.NumRenderTargets; ++i)
-        m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+	for (UINT i = 0; i < NumRTVs; ++i)
+	{
+		m_PSODesc.RTVFormats[i] = RTVFormats[i];
+	}
+	for (UINT i = NumRTVs; i < m_PSODesc.NumRenderTargets; ++i)
+	{
+		m_PSODesc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+	}
     m_PSODesc.NumRenderTargets = NumRTVs;
     m_PSODesc.DSVFormat = DSVFormat;
     m_PSODesc.SampleDesc.Count = MsaaCount;

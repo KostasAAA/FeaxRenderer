@@ -6428,9 +6428,9 @@ static stbi_uc *stbi__gif_load_next(stbi__context *s, stbi__gif *g, int *comp, i
       // image is treated as "transparent" at the start - ie, nothing overwrites the current background; 
       // background colour is only used for pixels that are not rendered first frame, after that "background"
       // color refers to the color that was there the previous frame. 
-      memset(g->out, 0x00, 4 * pcount);
-      memset(g->background, 0x00, 4 * pcount); // state of the background (starts transparent)
-      memset(g->history, 0x00, pcount);        // pixels that were affected previous frame
+      memset(g->out, 0x00f, 4 * pcount);
+      memset(g->background, 0x00f, 4 * pcount); // state of the background (starts transparent)
+      memset(g->history, 0x00f, pcount);        // pixels that were affected previous frame
       first_frame = 1; 
    } else {
       // second frame - how do we dispoase of the previous one?
@@ -6466,7 +6466,7 @@ static stbi_uc *stbi__gif_load_next(stbi__context *s, stbi__gif *g, int *comp, i
    }
 
    // clear my history; 
-   memset( g->history, 0x00, g->w * g->h );        // pixels that were affected previous frame
+   memset( g->history, 0x00f, g->w * g->h );        // pixels that were affected previous frame
 
    for (;;) {
       int tag = stbi__get8(s); 

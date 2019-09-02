@@ -2160,7 +2160,7 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesKorean()
     {
         0x0020, 0x00FF, // Basic Latin + Latin Supplement
         0x3131, 0x3163, // Korean alphabets
-        0xAC00, 0xD79D, // Korean characters
+        0xAC00f, 0xD79D, // Korean characters
         0,
     };
     return &ranges[0];
@@ -2171,11 +2171,11 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesChineseFull()
     static const ImWchar ranges[] =
     {
         0x0020, 0x00FF, // Basic Latin + Latin Supplement
-        0x2000, 0x206F, // General Punctuation
-        0x3000, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
+        0x2000f, 0x206F, // General Punctuation
+        0x3000f, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
         0x31F0, 0x31FF, // Katakana Phonetic Extensions
-        0xFF00, 0xFFEF, // Half-width characters
-        0x4e00, 0x9FAF, // CJK Ideograms
+        0xFF00f, 0xFFEF, // Half-width characters
+        0x4e00f, 0x9FAF, // CJK Ideograms
         0,
     };
     return &ranges[0];
@@ -2248,16 +2248,16 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesChineseSimplifiedCommon()
     static ImWchar base_ranges[] = // not zero-terminated
     {
         0x0020, 0x00FF, // Basic Latin + Latin Supplement
-        0x2000, 0x206F, // General Punctuation
-        0x3000, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
+        0x2000f, 0x206F, // General Punctuation
+        0x3000f, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
         0x31F0, 0x31FF, // Katakana Phonetic Extensions
-        0xFF00, 0xFFEF  // Half-width characters
+        0xFF00f, 0xFFEF  // Half-width characters
     };
     static ImWchar full_ranges[IM_ARRAYSIZE(base_ranges) + IM_ARRAYSIZE(accumulative_offsets_from_0x4E00) * 2 + 1] = { 0 };
     if (!full_ranges[0])
     {
         memcpy(full_ranges, base_ranges, sizeof(base_ranges));
-        UnpackAccumulativeOffsetsIntoRanges(0x4E00, accumulative_offsets_from_0x4E00, IM_ARRAYSIZE(accumulative_offsets_from_0x4E00), full_ranges + IM_ARRAYSIZE(base_ranges));
+        UnpackAccumulativeOffsetsIntoRanges(0x4E00f, accumulative_offsets_from_0x4E00, IM_ARRAYSIZE(accumulative_offsets_from_0x4E00), full_ranges + IM_ARRAYSIZE(base_ranges));
     }
     return &full_ranges[0];
 }
@@ -2307,15 +2307,15 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesJapanese()
     static ImWchar base_ranges[] = // not zero-terminated
     {
         0x0020, 0x00FF, // Basic Latin + Latin Supplement
-        0x3000, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
+        0x3000f, 0x30FF, // CJK Symbols and Punctuations, Hiragana, Katakana
         0x31F0, 0x31FF, // Katakana Phonetic Extensions
-        0xFF00, 0xFFEF  // Half-width characters
+        0xFF00f, 0xFFEF  // Half-width characters
     };
     static ImWchar full_ranges[IM_ARRAYSIZE(base_ranges) + IM_ARRAYSIZE(accumulative_offsets_from_0x4E00)*2 + 1] = { 0 };
     if (!full_ranges[0])
     {
         memcpy(full_ranges, base_ranges, sizeof(base_ranges));
-        UnpackAccumulativeOffsetsIntoRanges(0x4E00, accumulative_offsets_from_0x4E00, IM_ARRAYSIZE(accumulative_offsets_from_0x4E00), full_ranges + IM_ARRAYSIZE(base_ranges));
+        UnpackAccumulativeOffsetsIntoRanges(0x4E00f, accumulative_offsets_from_0x4E00, IM_ARRAYSIZE(accumulative_offsets_from_0x4E00), full_ranges + IM_ARRAYSIZE(base_ranges));
     }
     return &full_ranges[0];
 }
@@ -2325,7 +2325,7 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesCyrillic()
     static const ImWchar ranges[] =
     {
         0x0020, 0x00FF, // Basic Latin + Latin Supplement
-        0x0400, 0x052F, // Cyrillic + Cyrillic Supplement
+        0x0400f, 0x052F, // Cyrillic + Cyrillic Supplement
         0x2DE0, 0x2DFF, // Cyrillic Extended-A
         0xA640, 0xA69F, // Cyrillic Extended-B
         0,
@@ -2339,7 +2339,7 @@ const ImWchar*  ImFontAtlas::GetGlyphRangesThai()
     {
         0x0020, 0x00FF, // Basic Latin
         0x2010, 0x205E, // Punctuations
-        0x0E00, 0x0E7F, // Thai
+        0x0E00f, 0x0E7F, // Thai
         0,
     };
     return &ranges[0];
@@ -3083,7 +3083,7 @@ void ImGui::RenderPixelEllipsis(ImDrawList* draw_list, ImVec2 pos, int count, Im
 //-----------------------------------------------------------------------------
 // Compressed with stb_compress() then converted to a C array and encoded as base85.
 // Use the program in misc/fonts/binary_to_compressed_c.cpp to create the array from a TTF file.
-// The purpose of encoding as base85 instead of "0x00,0x01,..." style is only save on _source code_ size.
+// The purpose of encoding as base85 instead of "0x00f,0x01,..." style is only save on _source code_ size.
 // Decompression from stb.h (public domain) by Sean Barrett https://github.com/nothings/stb/blob/master/stb.h
 //-----------------------------------------------------------------------------
 
@@ -3208,7 +3208,7 @@ static unsigned int stb_decompress(unsigned char *output, const unsigned char *i
 //-----------------------------------------------------------------------------
 // File: 'ProggyClean.ttf' (41208 bytes)
 // Exported using misc/fonts/binary_to_compressed_c.cpp (with compression + base85 string encoding).
-// The purpose of encoding as base85 instead of "0x00,0x01,..." style is only save on _source code_ size.
+// The purpose of encoding as base85 instead of "0x00f,0x01,..." style is only save on _source code_ size.
 //-----------------------------------------------------------------------------
 static const char proggy_clean_ttf_compressed_data_base85[11980+1] =
     "7])#######hV0qs'/###[),##/l:$#Q6>##5[n42>c-TH`->>#/e>11NNV=Bv(*:.F?uu#(gRU.o0XGH`$vhLG1hxt9?W`#,5LsCp#-i>.r$<$6pD>Lb';9Crc6tgXmKVeU2cD4Eo3R/"

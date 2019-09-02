@@ -33,13 +33,19 @@ PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
 
-	float3 albedo = albedoBuffer[input.position.xy].rgb;
+	float4 albedo = albedoBuffer[input.position.xy].rgba;
 	float3 diffuse = lightDiffuseBuffer[input.position.xy].rgb;
 	float3 specular = lightSpecularBuffer[input.position.xy].rgb;
 
-	//albedo = 1;
+	albedo.rgb = pow(albedo.rgb, 2.2);
 
-	output.colour.rgb =   albedo * diffuse + specular;
+	float metalness = albedo.w;
+	albedo.rgb *= 1 - metalness;
+
+	output.colour.rgb = albedo *diffuse + specular;
+
+	//if (input.position.x >= 1280 / 2 - 1 && input.position.x <= 1280 / 2 + 1)
+	//	output.colour.rgb = float3(1, 0, 0);
 
     return output;
 }

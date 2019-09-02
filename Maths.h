@@ -9,6 +9,11 @@ typedef unsigned char uint8;
 
 #define Align(value, alignment) (((value + alignment - 1) / alignment) * alignment)
 
+inline XMVECTOR Float3ToVector4(XMFLOAT3& floatVec, float w)
+{
+	return XMVectorSet(floatVec.x, floatVec.y, floatVec.z, w);
+}
+
 inline XMVECTOR Float3ToVector4(XMFLOAT3& floatVec)
 {
 	return XMVectorSet(floatVec.x, floatVec.y, floatVec.z, 1.0f);

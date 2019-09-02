@@ -30,8 +30,6 @@ DescriptorHeap::DescriptorHeap( D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDes
 
 DescriptorHeap::~DescriptorHeap()
 {
-	m_DescriptorHeap->Release();
-	m_DescriptorHeap = nullptr;
 }
 
 
@@ -137,9 +135,9 @@ DescriptorHeapManager::DescriptorHeapManager()
 {
 	ZeroMemory(m_CPUDescriptorHeaps, sizeof(m_CPUDescriptorHeaps));
 
-	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 256);
-	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
-	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
+	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512);
+	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 128);
+	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 128);
 	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 16);
 
 	for (UINT i = 0; i < Graphics::FrameCount; i++)

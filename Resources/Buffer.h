@@ -12,6 +12,7 @@ public:
 			SRV = 1 << 0,
 			CBV = 1 << 1,
 			UAV = 1 << 2,
+			Structured = 1 << 3,
 		};
 	};
 
@@ -46,7 +47,7 @@ public:
 	Buffer() {}
 	virtual ~Buffer();
 
-	ID3D12Resource* GetResource() { return m_buffer; }
+	ID3D12Resource* GetResource() { return m_buffer.Get(); }
 
 	DescriptorHandle& GetSRV() { return m_srvHandle; }
 	DescriptorHandle& GetCBV() { return m_cbvHandle; }
@@ -70,8 +71,8 @@ private:
 
 	uint8* m_cbvMappedData;
 
-	ID3D12Resource* m_buffer;
-	ID3D12Resource* m_bufferUpload;
+	ComPtr<ID3D12Resource> m_buffer;
+	ComPtr<ID3D12Resource> m_bufferUpload;
 
 	DescriptorHandle m_srvHandle;
 	DescriptorHandle m_cbvHandle;

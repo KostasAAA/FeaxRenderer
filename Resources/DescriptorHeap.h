@@ -33,7 +33,7 @@ public:
 	DescriptorHeap( D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool isReferencedByShader = false);
 	virtual ~DescriptorHeap();
 
-	ID3D12DescriptorHeap *GetHeap() { return m_DescriptorHeap; }
+	ID3D12DescriptorHeap *GetHeap() { return m_DescriptorHeap.Get(); }
 	D3D12_DESCRIPTOR_HEAP_TYPE GetHeapType() { return m_HeapType; }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetHeapCPUStart() { return m_DescriptorHeapCPUStart; }
 	D3D12_GPU_DESCRIPTOR_HANDLE GetHeapGPUStart() { return m_DescriptorHeapGPUStart; }
@@ -53,7 +53,7 @@ public:
 	}
 
 protected:
-	ID3D12DescriptorHeap *m_DescriptorHeap;
+	ComPtr<ID3D12DescriptorHeap> m_DescriptorHeap;
 	D3D12_DESCRIPTOR_HEAP_TYPE m_HeapType;
 	D3D12_CPU_DESCRIPTOR_HANDLE m_DescriptorHeapCPUStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE m_DescriptorHeapGPUStart;

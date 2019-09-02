@@ -1,11 +1,20 @@
 #pragma once
 
 #include "..\Resources\RootSignature.h"
+#include "..\Resources\Buffer.h"
 
 class Mesh;
 class Buffer;
 struct IDxcBlob;
 class GPUDescriptorHeap;
+
+struct Material
+{
+	int			m_albedoID;
+	int			m_normalID;
+	float		m_roughness;
+	float		m_metalness;
+};
 
 class Model
 {
@@ -54,11 +63,40 @@ private:
 class ModelInstance
 {
 public:
-	ModelInstance(Model* model, XMMATRIX& objectToWorld) : m_model(model), m_objectToWorld(objectToWorld) { Update(); }
+	__declspec(align(16)) struct ModelInstanceCBData
+	{
+		XMMATRIX	World;
+		float		AlbedoID;
+		float		NormalID;
+		float		Roughness;
+		float		Metalness;
+	};
+
+	ModelInstance(Model* model, Material& material, int materialID, XMMATRIX& objectToWorld) : 
+		m_model(model), 
+		m_objectToWorld(objectToWorld), 
+		m_material(material), 
+		m_materialID(materialID)
+	{ 
+		Buffer::Description desc;
+		desc.m_elementSize = sizeof(ModelInstanceCBData);
+		desc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+		desc.m_descriptorType = Buffer::DescriptorType::CBV;
+
+		m_modelInstanceCB = new Buffer(desc, L"model instance CB");
+
+		Update(); 
+	}
+
+	~ModelInstance() { delete m_modelInstanceCB ; }
 
 	Model* GetModel() { return m_model; }
 	XMMATRIX& GetMatrix() { return m_objectToWorld; }
 	AABB& GetAABB() { return m_aabox; }
+	Material& GetMaterial() { return m_material; }
+	int GetMaterialID() { return m_materialID; }
+
+	Buffer* GetCB() { return m_modelInstanceCB; }
 
 	void Update() 
 	{ 
@@ -67,12 +105,24 @@ public:
 
 		m_aabox.MinBounds = Vector4ToFloat3(XMVector4Transform(minBounds, m_objectToWorld));
 		m_aabox.MaxBounds = Vector4ToFloat3(XMVector4Transform(maxBounds, m_objectToWorld));
+
+		ModelInstanceCBData cbData = {};
+		cbData.World = m_objectToWorld;
+		cbData.AlbedoID = m_material.m_albedoID;
+		cbData.NormalID = m_material.m_normalID;
+		cbData.Roughness = m_material.m_roughness;
+		cbData.Metalness = m_material.m_metalness;
+
+		memcpy(m_modelInstanceCB->Map(), &cbData, sizeof(cbData));
 	}
 
 private:
+	Material	m_material;
 	XMMATRIX	m_objectToWorld;
 	Model*		m_model;
 	AABB		m_aabox;
+	Buffer*		m_modelInstanceCB;
+	int			m_materialID;
 };
 
 class Scene
@@ -124,8 +174,16 @@ public:
 
 	AABB& GetAABB() { return m_aabox; }
 
-	void SetBVHBuffer(Buffer* buffer) { m_bvhBuffer = buffer; }
+	void SetBVHBuffer(Buffer* bvhBuffer, Buffer* bvhBufferNormals, Buffer* bvhBufferUVs) 
+	{ 
+		m_bvhBuffer = bvhBuffer;
+		m_bvhBufferNormals = bvhBufferNormals;
+		m_bvhBufferUVs = bvhBufferUVs;
+	}
+
 	Buffer* GetBVHBuffer() { return m_bvhBuffer; }
+	Buffer* GetBVHBufferNormals() { return m_bvhBufferNormals; }
+	Buffer* GetBVHBufferUVs() { return m_bvhBufferUVs; }
 
 	void SetTLASBuffer(Buffer* buffer) { m_dxr.m_tlasBuffer = buffer; }
 	Buffer* GetTLASBuffer() { return m_dxr.m_tlasBuffer; }
@@ -137,6 +195,8 @@ private:
 	std::vector<ModelInstance*> m_modelInstances;
 	std::vector<Model*>			m_models;
 	Buffer*						m_bvhBuffer;
+	Buffer*						m_bvhBufferNormals;
+	Buffer*						m_bvhBufferUVs;
 
 	DXR							m_dxr;
 };

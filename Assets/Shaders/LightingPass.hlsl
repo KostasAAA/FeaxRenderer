@@ -1,3 +1,5 @@
+#include "LightingCommon.h"
+
 struct VSInput
 {
 	float3 position : POSITION;
@@ -28,8 +30,10 @@ PSInput VSMain(VSInput input)
 
 cbuffer LightingConstantBuffer : register(b0)
 {
-	float4x4 InvWorldViewProjection;
-	float4	LightDirection;
+	float4x4	InvViewProjection;
+	float4		LightDirection;
+	float4		CameraPos;
+	float4		RTSize;
 };
 
 Texture2D<float4> albedoBuffer : register(t0);
@@ -53,8 +57,21 @@ PSOutput PSMain(PSInput input)
 
 	if (depth < 1)
 	{
-		float3 normal = normalBuffer[input.position.xy].rgb * 2 - 1;
-		float3 albedo = albedoBuffer[input.position.xy].rgb;
+		float4 normal = normalBuffer[input.position.xy];
+		float4 albedo = albedoBuffer[input.position.xy];
+
+		float roughness = normal.w;
+		float metalness = albedo.w;
+		float3 specularColour = lerp(0.04, albedo.rgb, metalness);
+
+		float2 uv = input.position.xy * RTSize.zw;
+		float4 clipPos = float4(2 * uv - 1, depth, 1);
+		clipPos.y = -clipPos.y;
+
+		float4 worldPos = mul(InvViewProjection, clipPos);
+		worldPos.xyz /= worldPos.w;
+
+		float3 viewDir = normalize(CameraPos.xyz - worldPos.xyz);
 
 		int w = 2;
 		float shadow = 0;
@@ -66,7 +83,7 @@ PSOutput PSMain(PSInput input)
 				float weight =  gaussian[x + w][y + w];
 				//float sampleDepth = depthBuffer[input.position.xy + float2(x, y)].x;
 
-				shadow += weight * shadowBuffer[input.position.xy + 1 * float2(x, y)].x;
+				shadow += weight * shadowBuffer[input.position.xy + 2 * float2(x, y)].x;
 			}
 		}
 		shadow /= 273.0;
@@ -74,14 +91,18 @@ PSOutput PSMain(PSInput input)
 
 		//shadow =  shadowBuffer[input.position.xy ].x;
 
-		if (input.position.x >= 1280/2)
-			shadow = shadowBuffer[input.position.xy].x;
-
+		//if (input.position.x >= 1280/2)
+		 //	shadow = shadowBuffer[input.position.xy].x;
+		
+	//	if ( LightDirection.w > 0)
+	//		shadow = shadowBuffer[input.position.xy].x;
 
 		float3 lightDir = LightDirection.xyz;
+		float lightIntensity = LightDirection.w;
 
-		output.diffuse.rgb = shadow * saturate(dot(normal, lightDir)) + 0.3;
-		output.specular.rgb = 0;
+		//shadow = 1;
+		output.diffuse.rgb = lightIntensity * shadow * saturate(dot(normal.xyz, lightDir)) + 0.3;
+		output.specular.rgb = lightIntensity * shadow * LightingGGX(normal.xyz, viewDir, lightDir, roughness, specularColour);
 	}
 	else
 		output.diffuse.rgb = 1;

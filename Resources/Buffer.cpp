@@ -15,7 +15,6 @@ Buffer::Buffer(Description& description, LPCWSTR name, unsigned char *data)
 	{
 		m_bufferSize = Align(m_bufferSize, 256);
 	}
-//	m_resourceFlags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
 	CreateResources();
 
@@ -75,8 +74,8 @@ void Buffer::CreateResources()
 		data.RowPitch = m_bufferSize;
 		data.SlicePitch = 0;
 
-		UpdateSubresources(commandList, m_buffer, m_bufferUpload, 0, 0, 1, &data);
-		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_buffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+		UpdateSubresources(commandList, m_buffer.Get() , m_bufferUpload.Get(), 0, 0, 1, &data);
+		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_buffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
 
 	// Describe and create a shader resource view (SRV) heap for the texture.
@@ -88,6 +87,7 @@ void Buffer::CreateResources()
 
 		// Describe and create a SRV for the texture.
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = m_description.m_format;
 		if (m_description.m_state == D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE)
@@ -100,8 +100,12 @@ void Buffer::CreateResources()
 		{
 			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			srvDesc.Buffer.NumElements = m_description.m_noofElements;
+			if (m_description.m_descriptorType & Buffer::DescriptorType::Structured)
+			{
+				srvDesc.Buffer.StructureByteStride = m_description.m_elementSize;
+			}
 			srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-			device->CreateShaderResourceView(m_buffer, &srvDesc, m_srvHandle.GetCPUHandle());
+			device->CreateShaderResourceView(m_buffer.Get(), &srvDesc, m_srvHandle.GetCPUHandle());
 		}
 
 	}
@@ -124,8 +128,5 @@ Buffer::~Buffer()
 	if( m_cbvMappedData)
 		m_buffer->Unmap(0, nullptr);
 
-	m_buffer->Release();
-
-	if(m_bufferUpload)
-		m_bufferUpload->Release();
+	m_cbvMappedData = nullptr;
 }

@@ -15,6 +15,7 @@ Texture2D<float>			depthBuffer : register(t0);
 Texture2D<float4>			normalBuffer : register(t1);
 Buffer<float4>				BVHTree : register(t2);
 Texture2D<float>			shadowHistory : register(t3);
+Texture2D<float4>			blueNoiseBuffer : register(t4);
 
 RWTexture2D<float>			outputRT : register(u0);
  
@@ -102,19 +103,30 @@ float2 randomOnDisk(float2 uv)
 	return rho * float2(cos(phi), sin(phi));
 }
 
+float2 randomOnDiskBlue(int2 screenPos)
+{
+	float3 rand = blueNoiseBuffer[int2(screenPos.x % 64, screenPos.y % 64)].xyz;
+
+	float rho = sqrt(rand.x);
+	//	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w * PI/2;// / (2 * PI);
+	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w;
+
+	return rho * float2(cos(phi), sin(phi));
+}
+
 [numthreads(THREADX, THREADY, 1)]
 void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
 	float collision = 0;
-	 
+
 	float depth = depthBuffer[DTid.xy].x;
-	float3 normal = normalBuffer[DTid.xy].xyz * 2 - 1;
+	float3 normal = normalBuffer[DTid.xy].xyz; 
 
 	float NdotL = dot(normal, normalize(lightDir.xyz));
 
 	float2 uv = DTid.xy * rtSize.zw;
 
-	gActivateRotation = 1;
+	gActivateRotation = 0;
 
 	//do not raytrace for sky pixels and for surfaces that point away from the light
 	if (depth < 1 && NdotL > 0)
@@ -131,14 +143,16 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		worldPos.xyz /= worldPos.w;
 
 		//offset to avoid selfshadows
-		worldPos.xyz += 0.01 * normal;
+		worldPos.xyz += 0.1 * normal;
 
 		float3 rayDir = lightDir.xyz;
-		float3 lightPerpX = normalize(cross(lightDir.xyz, float3(0,1,0)));
+
+#if 1
+		float3 lightPerpX = normalize(cross(lightDir.xyz, float3(0, 1, 0)));
 		float3 lightPerpY = normalize(cross(lightDir.xyz, lightPerpX));
 
 		int w = 1;
-		float scale = 0.03;
+		float scale = 0.02;
 		//scale = 1;
 
 		for (int y = 0; y < w; y++)
@@ -146,11 +160,17 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 			for (int x = 0; x < w; x++)
 			{
 #if 0
-				float ry = scale * (rand01((DTid.xy + float2(y, x))* rtSize.zw)-0.5);
-				float rx = scale * (rand01((DTid.yx + float2(x, y))* rtSize.zw)-0.5);
+				float ry = scale * (rand01((DTid.xy + float2(y, x))* rtSize.zw) - 0.5);
+				float rx = scale * (rand01((DTid.yx + float2(x, y))* rtSize.zw) - 0.5);
 #else
-				float2 pointOnDisk = randomOnDisk( uv + float2(x, y)* rtSize.zw );
-//				float2 pointOnDisk = randomOnDisk(worldPos.xz + float2(x, y)* rtSize.zw);
+				float2 pointOnDisk;
+
+			//	if ( uv.x < 0.5)
+			//		pointOnDisk = randomOnDisk( uv + float2(x, y)* rtSize.zw );
+			//	else
+					pointOnDisk = randomOnDiskBlue(DTid.xy + int2(x, y));
+
+				//				float2 pointOnDisk = randomOnDisk(worldPos.xz + float2(x, y)* rtSize.zw);
 
 				float ry = 0.5 * scale * pointOnDisk.y;
 				float rx = 0.5 * scale * pointOnDisk.x;
@@ -161,14 +181,20 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 			}
 		}
 		collision /= w*w;
+#else
+		collision = TraceRay(worldPos.xyz, rayDir);
+#endif
 	}
+
 	float shadowFactor = 1 - float(collision);
 
 	float historyValue = shadowHistory[DTid.xy];
 
-	if ( uv.x < 0.5)
-		outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.95);
-	else
+//	shadowFactor = blueNoiseBuffer[int2(DTid.x % 64, DTid.y % 64)].xyz;
+
+//	if ( uv.x < 0.5)
+//		outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.95);
+//	else
 		outputRT[DTid.xy] = shadowFactor;
 
 	//historyRT[DTid.xy] = 

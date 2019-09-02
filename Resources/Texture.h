@@ -11,7 +11,7 @@ public:
 	Texture() {}
 	virtual ~Texture();
 
-	ID3D12Resource* GetResource() { return m_texture; }
+	ID3D12Resource* GetResource() { return m_texture.Get(); }
 
 	DescriptorHandle& GetSRV() { return m_srvHandle; }
 
@@ -21,8 +21,8 @@ private:
 	int m_noofChannels;
 	unsigned char* m_data;
 
-	ID3D12Resource* m_textureUploadHeap;
-	ID3D12Resource* m_texture;
+	ComPtr<ID3D12Resource> m_textureUploadHeap;
+	ComPtr<ID3D12Resource> m_texture;
 	DescriptorHandle m_srvHandle;
 
 	void CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);

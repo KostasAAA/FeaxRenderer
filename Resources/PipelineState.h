@@ -35,13 +35,13 @@ public:
         return *m_RootSignature;
     }
 
-    ID3D12PipelineState* GetPipelineStateObject( void ) const { return m_PSO; }
+    ID3D12PipelineState* GetPipelineStateObject( void ) const { return m_PSO.Get(); }
 
 protected:
 
     const RootSignature* m_RootSignature;
 
-    ID3D12PipelineState* m_PSO;
+	ComPtr<ID3D12PipelineState> m_PSO;
 };
 
 class GraphicsPSO : public PSO

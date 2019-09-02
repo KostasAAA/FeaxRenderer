@@ -1,15 +1,25 @@
 #pragma once
 
+class DescriptorHandle;
+
 class Rendertarget
 {
 public:
+	struct Description
+	{
+		int m_width;
+		int m_height;
+		DXGI_FORMAT m_format;
+		D3D12_RESOURCE_FLAGS m_flags;
+		XMFLOAT4 m_clearColour;
+		ComPtr<ID3D12Resource> m_buffer;
+	};
 
-	Rendertarget(int width, int height, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, XMFLOAT4 clearColour = { 0.0f,0.0f,0.0f,0.0f }, LPCWSTR name = L"Unknown RT");
-	Rendertarget(IDXGISwapChain3* m_swapChain, int index = 0, LPCWSTR name = L"Unknown RT");
+	Rendertarget(Description& desc);
 	Rendertarget() {}
 	virtual ~Rendertarget();
 
-	ID3D12Resource* GetResource() { return m_rendertarget; }
+	ID3D12Resource* GetResource() { return m_rendertarget.Get(); }
 
 	DescriptorHandle& GetRTV()
 	{
@@ -26,21 +36,15 @@ public:
 		return m_uavHandle;
 	}
 
-	DXGI_FORMAT GetFormat() { return m_format; }
+	DXGI_FORMAT GetFormat() { return m_desc.m_format; }
 
 	void TransitionTo(GraphicsContext& context, D3D12_RESOURCE_STATES stateAfter);
 
 private:
-	int m_width;
-	int m_height;
-	DXGI_FORMAT m_format;
-	UINT m_nooRTs;
-	D3D12_RESOURCE_FLAGS m_flags;
-
-	XMFLOAT4 m_clearColour;
+	Description m_desc;
 
 	D3D12_RESOURCE_STATES m_currentState;
-	ID3D12Resource* m_rendertarget;
+	ComPtr<ID3D12Resource> m_rendertarget;
 
 	DescriptorHandle m_rtvHandle;
 	DescriptorHandle m_srvHandle;

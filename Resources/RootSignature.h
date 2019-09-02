@@ -157,7 +157,7 @@ public:
 
     void Finalise(ID3D12Device* device, const std::wstring& name, D3D12_ROOT_SIGNATURE_FLAGS Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE);
 
-    ID3D12RootSignature* GetSignature() const { return m_Signature; }
+    ID3D12RootSignature* GetSignature() const { return m_Signature.Get(); }
 
 protected:
 
@@ -170,5 +170,5 @@ protected:
     uint32_t m_DescriptorTableSize[16];        // Non-sampler descriptor tables need to know their descriptor count
     std::unique_ptr<RootParameter[]> m_ParamArray;
     std::unique_ptr<D3D12_STATIC_SAMPLER_DESC[]> m_SamplerArray;
-    ID3D12RootSignature* m_Signature;
+	ComPtr<ID3D12RootSignature> m_Signature;
 };

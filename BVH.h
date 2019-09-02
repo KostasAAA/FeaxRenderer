@@ -46,12 +46,12 @@ namespace BVH
 
 	struct BVHNode
 	{
-		float				SplitCost;
 		BVHAABB				BoundingBox;
 		BVHNode*			Left;
 		BVHNode*			Right;
+		float				SplitCost;
+		uint				TriangleIndex;
 	};
-
 	void CreateBVHBuffer(Scene* scene);
 
 };

@@ -10,17 +10,23 @@ using namespace std;
 
 namespace BVH
 {
+	std::vector<XMFLOAT3> m_normalsList;
+	std::vector<XMFLOAT2> m_uvList;
+	std::vector<int> m_materialIDList;
+
 	void AddPropToPrimitivesAABBList(
 		std::vector<BVHAABB>&		bboxData,
 		std::vector<BVHAABBCentre>&	bboxCentres,
 		Scene*						scene
 	)
 	{
+		int index = 0;
+
 		for (ModelInstance* modelInstance : scene->GetModelInstances())
 		{
 			XMMATRIX& world = modelInstance->GetMatrix();
-
-			int index = 0;
+			Material& material = modelInstance->GetMaterial();
+			int materialID = modelInstance->GetMaterialID();
 
 			Model* model = modelInstance->GetModel();
 
@@ -59,6 +65,20 @@ namespace BVH
 					bboxData.emplace_back(bbox);
 
 					bboxCentres.emplace_back(centre, index);
+
+					XMVECTOR normal1 = XMVector3Normalize( Float3ToVector4(vertices[index0].normal, 0) );
+					XMVECTOR normal2 = XMVector3Normalize( Float3ToVector4(vertices[index1].normal, 0) );
+					XMVECTOR normal3 = XMVector3Normalize( Float3ToVector4(vertices[index2].normal, 0) );
+
+					m_normalsList.push_back( Vector4ToFloat3(XMVector4Transform(normal1, world)) );
+					m_normalsList.push_back( Vector4ToFloat3(XMVector4Transform(normal2, world)) );
+					m_normalsList.push_back( Vector4ToFloat3(XMVector4Transform(normal3, world)) );
+
+					m_uvList.push_back( vertices[index0].texcoord );
+					m_uvList.push_back( vertices[index1].texcoord );
+					m_uvList.push_back( vertices[index2].texcoord );
+
+					m_materialIDList.push_back(materialID);
 
 					index++;
 				}
@@ -214,6 +234,8 @@ namespace BVH
 			node->BoundingBox.Expand(node->BoundingBox.Vertex0);
 			node->BoundingBox.Expand(node->BoundingBox.Vertex1);
 			node->BoundingBox.Expand(node->BoundingBox.Vertex2);
+
+			node->TriangleIndex = index;
 		}
 		else
 		{
@@ -305,6 +327,8 @@ namespace BVH
 
 				//when on the left branch, how many float4 elements we need to skip to reach the right branch?
 				bbox->Vertex0.w = sizeof(BVHLeafBBoxGPU) / sizeof(XMFLOAT4);
+				bbox->Vertex1MinusVertex0.w = node->TriangleIndex;// store the triangle index, we may need it to access normals and uvs
+				bbox->Vertex2MinusVertex0.w = m_materialIDList[node->TriangleIndex];
 
 				dataOffset += sizeof(BVHLeafBBoxGPU);
 				index++;
@@ -365,14 +389,40 @@ namespace BVH
 		bbox->MinBounds.w = 0;
 		dataOffset += sizeof(BVHNodeBBoxGPU);
 
-		Buffer::Description desc;
-		desc.m_noofElements = dataOffset / sizeof(XMFLOAT4);
-		desc.m_elementSize = sizeof(XMFLOAT4);
-		desc.m_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-		desc.m_descriptorType = Buffer::DescriptorType::SRV;
+		Buffer* bvhBuffer = nullptr;
+		{
+			Buffer::Description desc;
+			desc.m_noofElements = dataOffset / sizeof(XMFLOAT4);
+			desc.m_elementSize = sizeof(XMFLOAT4);
+			desc.m_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+			desc.m_descriptorType = Buffer::DescriptorType::SRV;
 
-		Buffer* bvhBuffer = new Buffer(desc, L"BVHBuffer", bvhTreeNodesGPU);
-		scene->SetBVHBuffer(bvhBuffer);
+			bvhBuffer = new Buffer(desc, L"BVHBuffer", bvhTreeNodesGPU);
+		}
+
+		Buffer* normalsBuffer = nullptr;
+		{
+			Buffer::Description desc;
+			desc.m_noofElements = m_normalsList.size();
+			desc.m_elementSize = sizeof(XMFLOAT3);
+			desc.m_format = DXGI_FORMAT_R32G32B32_FLOAT;
+			desc.m_descriptorType = Buffer::DescriptorType::SRV;
+
+			normalsBuffer = new Buffer(desc, L"BVHBuffer_normals", (unsigned char*)m_normalsList.data());
+		}
+
+		Buffer* uvBuffer = nullptr;
+		{
+			Buffer::Description desc;
+			desc.m_noofElements = m_uvList.size();
+			desc.m_elementSize = sizeof(XMFLOAT2);
+			desc.m_format = DXGI_FORMAT_R32G32_FLOAT;
+			desc.m_descriptorType = Buffer::DescriptorType::SRV;
+
+			uvBuffer = new Buffer(desc, L"BVHBuffer_uvs", (unsigned char*)m_uvList.data());
+		}
+
+		scene->SetBVHBuffer(bvhBuffer, normalsBuffer, uvBuffer);
 
 		free(bvhTreeNodesGPU);
 		DeleteBVHTree(bvhRoot);

@@ -16,6 +16,7 @@ public:
 	~Mesh();
 
 	static Mesh* CreatePlane(ID3D12Device* device);
+	static Mesh* CreateCube(ID3D12Device* device);
 
 	std::vector<Vertex>& GetVertices() { return m_vertices; }
 	std::vector<uint>& GetIndices() { return m_indices; }
@@ -23,8 +24,8 @@ public:
 
 	uint GetNoofIndices(){ return m_noofIndices;  }
 
-	ID3D12Resource* GetVertexBuffer() { return m_vertexBuffer; }
-	ID3D12Resource* GetIndexBuffer() { return m_indexBuffer; }
+	ID3D12Resource* GetVertexBuffer() { return m_vertexBuffer.Get(); }
+	ID3D12Resource* GetIndexBuffer() { return m_indexBuffer.Get(); }
 
 	D3D12_VERTEX_BUFFER_VIEW& GetVertexBufferView() { return m_vertexBufferView; }
 	D3D12_INDEX_BUFFER_VIEW& GetIndexBufferView() { return m_indexBufferView; }
@@ -35,8 +36,8 @@ private:
 	AABB				m_aabox;
 	uint				m_noofIndices;
 
-	ID3D12Resource* m_vertexBuffer;
-	ID3D12Resource* m_indexBuffer;
+	ComPtr<ID3D12Resource> m_vertexBuffer;
+	ComPtr<ID3D12Resource> m_indexBuffer;
 
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;

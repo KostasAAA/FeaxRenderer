@@ -65,7 +65,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>DirectXTK12.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies);assimp-vc140-mt.lib</AdditionalDependencies>
+      <AdditionalDependencies>dxguid.lib;DirectXTK12.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies);assimp-vc140-mt.lib</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>Assimp\lib\x64;DirectXTK12\Bin\Desktop_2017_Win10\x64\Debug</AdditionalLibraryDirectories>
     </Link>
@@ -120,6 +120,7 @@
     <ClInclude Include="dxc\dxcapi.use.h" />
     <ClInclude Include="DXR.h" />
     <ClInclude Include="FeaxRenderer.h" />
+    <ClInclude Include="GPUProfiler.hpp" />
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="ImGUI\imconfig.h" />
     <ClInclude Include="ImGUI\imgui.h" />
@@ -134,6 +135,7 @@
     <ClInclude Include="Renderables\Material.h" />
     <ClInclude Include="Renderables\Mesh.h" />
     <ClInclude Include="Renderables\Model.h" />
+    <ClInclude Include="RendertargetManager.h" />
     <ClInclude Include="Resources\Buffer.h" />
     <ClInclude Include="Resources\DescriptorHeap.h" />
     <ClInclude Include="Resources\Graphics.h" />
@@ -143,6 +145,7 @@
     <ClInclude Include="Resources\Texture.h" />
     <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Win32Application.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DXSample.h" />
@@ -153,6 +156,10 @@
     <ClCompile Include="BVH.cpp" />
     <ClCompile Include="DXR.cpp" />
     <ClCompile Include="FeaxRenderer.cpp" />
+    <ClCompile Include="GPUProfiler.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="ImGUI\imgui.cpp" />
     <ClCompile Include="ImGUI\imgui_demo.cpp" />
     <ClCompile Include="ImGUI\imgui_draw.cpp" />
@@ -163,6 +170,7 @@
     <ClCompile Include="Renderables\Material.cpp" />
     <ClCompile Include="Renderables\Mesh.cpp" />
     <ClCompile Include="Renderables\Model.cpp" />
+    <ClCompile Include="RendertargetManager.cpp" />
     <ClCompile Include="Resources\Buffer.cpp" />
     <ClCompile Include="Resources\DescriptorHeap.cpp" />
     <ClCompile Include="Resources\Graphics.cpp" />
@@ -171,6 +179,7 @@
     <ClCompile Include="Resources\RootSignature.cpp" />
     <ClCompile Include="Resources\Texture.cpp" />
     <ClCompile Include="ShaderCompiler.cpp" />
+    <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -247,6 +256,13 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
+    <CustomBuild Include="Assets\Shaders\HybridSSR.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+    </CustomBuild>
     <FxCompile Include="Assets\Shaders\Miss.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>

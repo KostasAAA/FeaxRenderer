@@ -31,9 +31,9 @@
 #include "DXSample.h"
 
 #include "Maths.h"
-
 #include "GraphicsContext.h"
 #include "Resources\Graphics.h"
+#include "GPUProfiler.hpp"
 
 #if defined DXR_ENABLED
 //#include <dxc/dxcapi.use.h>

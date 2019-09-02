@@ -19,10 +19,8 @@ Texture::Texture(const char* filename, ID3D12Device* device, ID3D12GraphicsComma
 {
 	stbi_uc *data = stbi_load(filename, &m_width, &m_height, &m_noofChannels, 0);
 
-	m_noofChannels = 4;
-
-	m_data = new unsigned char[m_width * m_height * m_noofChannels];
-
+	m_data = new unsigned char[m_width * m_height * 4];
+	
 	int destIndex = 0;
 	int srcIndex = 0;
 	for (int y = 0; y < m_height; y++)
@@ -32,10 +30,16 @@ Texture::Texture(const char* filename, ID3D12Device* device, ID3D12GraphicsComma
 			m_data[destIndex++] = data[srcIndex++];
 			m_data[destIndex++] = data[srcIndex++];
 			m_data[destIndex++] = data[srcIndex++];
-			m_data[destIndex++] = 255;
-		}
 
+			if ( m_noofChannels == 4 )
+				m_data[destIndex++] = data[srcIndex++];
+			else
+				m_data[destIndex++] = 255;
+
+		}
 	}
+
+	m_noofChannels = 4;
 
 	CreateResources(device, commandList);
 }
@@ -62,7 +66,7 @@ void Texture::CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* c
 		nullptr,
 		IID_PPV_ARGS(&m_texture)));
 
-	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture, 0, 1);
+	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0, 1);
 
 	// Create the GPU upload buffer.
 	ThrowIfFailed(device->CreateCommittedResource(
@@ -81,8 +85,8 @@ void Texture::CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* c
 	textureData.RowPitch = m_width * m_noofChannels;
 	textureData.SlicePitch = textureData.RowPitch * m_height;
 
-	UpdateSubresources(commandList, m_texture, m_textureUploadHeap, 0, 0, 1, &textureData);
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	UpdateSubresources(commandList, m_texture.Get(), m_textureUploadHeap.Get(), 0, 0, 1, &textureData);
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 
 	// Describe and create a shader resource view (SRV) heap for the texture.
 	DescriptorHeapManager* descriptorManager = Graphics::Context.m_descriptorManager;
@@ -100,13 +104,10 @@ void Texture::CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* c
 	srvDesc.Format = textureDesc.Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = 1;
-	device->CreateShaderResourceView(m_texture, &srvDesc, m_srvHandle.GetCPUHandle());
+	device->CreateShaderResourceView(m_texture.Get(), &srvDesc, m_srvHandle.GetCPUHandle());
 }
 
 Texture::~Texture()
 {
-	m_textureUploadHeap->Release();
-	m_texture->Release();
-
 	delete[] m_data;
 }
