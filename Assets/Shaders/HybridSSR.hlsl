@@ -55,7 +55,8 @@ cbuffer cbSSLR : register(b0)
 	float4x4	View;
 	float4x4	InvView;
 	float4		RTSize;
-	float4		CameraPos;
+	float3		CameraPos;
+	float		SSRScale;
 	float4		LightDirection;
 
 	float		ZThickness; // thickness to ascribe to each pixel in the depth buffer
@@ -278,9 +279,10 @@ struct HitData
 	int TriangleIndex;
 	float2 BarycentricCoords;
 	int MaterialID;
+	float Distance;
 };
 
-bool TraceRay(float3 worldPos, float3 rayDir, out HitData hitData)
+bool TraceRay(float3 worldPos, float3 rayDir, bool firstHitOnly, out HitData hitData)
 {
 	float t = 0;
 	float2 bCoord = 0;
@@ -335,12 +337,13 @@ bool TraceRay(float3 worldPos, float3 rayDir, out HitData hitData)
 				hitData.TriangleIndex = (int)vertex1MinusVertex0.w;
 				hitData.MaterialID = (int)vertex2MinusVertex0.w;
 				hitData.BarycentricCoords = bCoord;
+				hitData.Distance = t;
 
 				minDistance = t;
 
 				noofCollisions++;
 
-				if(noofCollisions > 20)
+				if(firstHitOnly || noofCollisions > 10)
 					return true;
 			}
 		}
@@ -432,7 +435,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 		HitData hitdata;
 
-		if (TraceRay(worldPos.xyz, rayDirection, hitdata))
+		if (TraceRay(worldPos.xyz, rayDirection, false, hitdata))
 		{
 			//interpolate normal
 			float3 n0 = BVHNormals[hitdata.TriangleIndex * 3].xyz;
@@ -465,11 +468,15 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 			//calculate specular for hit point. This assumes view dir is hitpoint to world position (-rayDirection)
 			float3 specular = LightingGGX(n.xyz, -rayDirection, LightDirection.xyz, material.Roughness, specularColour);
 
+			worldPos.xyz += hitdata.Distance * rayDirection + 0.1 * n; 
+
+			bool collision = TraceRay(worldPos.xyz, LightDirection.xyz, true, hitdata);
+
 			float NdotL = saturate(dot(n, LightDirection.xyz));
 
-			float lightIntensity = LightDirection.w;
+			float lightIntensity = LightDirection.w * (1- collision);
 
-			result =  float4( albedo.rgb * (lightIntensity * NdotL + 0.3) + specular, 1);
+			result =  float4( albedo.rgb * (lightIntensity * NdotL + 0.3) + lightIntensity * specular, 1);
 		}
 	}
 
@@ -481,9 +488,6 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	float3 F = Fresnel(specularColour, L, H);
 
-	outputRT[screenPos] = float4(result.rgb * F, 1);
-	
-	// (1.0 - normal.w);
-	//return float4(hitPixel, depth, rDotV) * (intersection ? 1.0f : 0.0f);
+	outputRT[screenPos] = float4( result.rgb * (F * SSRScale) , 1);
 }
 

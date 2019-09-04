@@ -63,9 +63,9 @@ namespace Graphics
 void Graphics::InitializeCommonState(void)
 {
 	SamplerLinearWrapDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	SamplerLinearWrapDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-	SamplerLinearWrapDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-	SamplerLinearWrapDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+	SamplerLinearWrapDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	SamplerLinearWrapDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	SamplerLinearWrapDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	SamplerLinearWrapDesc.MipLODBias = 0;
 	SamplerLinearWrapDesc.MaxAnisotropy = 0;
 	SamplerLinearWrapDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;

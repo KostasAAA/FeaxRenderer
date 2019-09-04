@@ -14,6 +14,10 @@ struct Material
 	int			m_normalID;
 	float		m_roughness;
 	float		m_metalness;
+	XMFLOAT2	m_uvScale;
+	XMFLOAT2	m_normalScale;
+
+	Material() : m_albedoID(-1), m_normalID(-1), m_roughness(0.5f), m_metalness(0), m_uvScale(XMFLOAT2(0, 0)), m_normalScale(XMFLOAT2(1, 1)) {}
 };
 
 class Model
@@ -70,6 +74,8 @@ public:
 		float		NormalID;
 		float		Roughness;
 		float		Metalness;
+		XMFLOAT2	UVscale;
+		XMFLOAT2	Normalscale;
 	};
 
 	ModelInstance(Model* model, Material& material, int materialID, XMMATRIX& objectToWorld) : 
@@ -112,6 +118,8 @@ public:
 		cbData.NormalID = m_material.m_normalID;
 		cbData.Roughness = m_material.m_roughness;
 		cbData.Metalness = m_material.m_metalness;
+		cbData.UVscale = m_material.m_uvScale;
+		cbData.Normalscale = m_material.m_normalScale;
 
 		memcpy(m_modelInstanceCB->Map(), &cbData, sizeof(cbData));
 	}

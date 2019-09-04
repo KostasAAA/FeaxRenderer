@@ -157,12 +157,166 @@ void FeaxRenderer::LoadPipeline()
 	SetupImGUI();
 }
 
-// Load the sample assets.
-void FeaxRenderer::LoadAssets()
-{    
-	Graphics::Context.m_device = m_device.Get();
-
+void FeaxRenderer::LoadMeshes()
+{
 	ModelLoader modelLoader;
+
+	Scene* scene = new Scene();
+
+	Graphics::Context.m_scene = scene;
+
+	//load meshes
+	{
+		Material material = {};
+
+		//add statue
+		Model* model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\statue.obj"));
+		XMMATRIX objectToWorld = XMMatrixRotationY(60.0f);
+
+		material.m_albedoID = m_textureManager.Load("Marble\\Marble01_col.jpg");
+		material.m_roughness = 0.5f;
+		material.m_metalness = 0.0f;
+		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
+
+		int materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+		//add teapot
+		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\teapot.obj"));
+		objectToWorld = XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.5f, 3.0f, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("spnza_bricks_a_diff.jpg");
+		material.m_roughness = 0.9f;
+		material.m_metalness = 0.0f;
+
+		materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+		//add another instance of the teapot
+		objectToWorld = XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslationFromVector(XMVectorSet(3.0f, 0.5f, 0.0f, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("RedBrick\\Tiles37_col.jpg");
+		material.m_roughness = 0.1f;
+		material.m_metalness = 0.0f;
+
+		materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+		//add a wall
+		model = new Model(Mesh::CreateCube(m_device.Get()));
+		objectToWorld = XMMatrixScaling(0.25f, 8.0f, 15.0f) * XMMatrixTranslationFromVector(XMVectorSet(-7.5f, 4.0f, 0.0f, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("Brick\\Bricks23_col.jpg");
+		material.m_roughness = 0.1f;
+		material.m_metalness = 0.0f;
+
+		materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		//add another wall
+		objectToWorld = XMMatrixScaling(15.0f, 8.0f, 0.25f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 4.0f, -7.5f, 0.0f));
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+		//add a floor
+		model = new Model(Mesh::CreatePlane(m_device.Get()));
+
+		material.m_albedoID = m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
+		material.m_normalID = m_textureManager.Load("BlackTile\\Tiles52_nrm.jpg");
+		material.m_roughness = 0.1f;
+		material.m_metalness = 0.0f;
+		material.m_uvScale = XMFLOAT2(3.0f, 3.0f);
+		material.m_normalScale = XMFLOAT2(0.05f, 0.05f);
+
+		materialID = m_materials.size();
+
+		objectToWorld = XMMatrixScaling(5, 1, 5);
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+		BVH::CreateBVHBuffer(Graphics::Context.m_scene);
+
+		Buffer::Description desc;
+		desc.m_elementSize = sizeof(Material);
+		desc.m_noofElements = m_materials.size();
+		desc.m_state = D3D12_RESOURCE_STATE_COPY_DEST;
+		desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
+
+		m_materialBuffer = new Buffer(desc, L"Materials Buffer", (unsigned char*)m_materials.data());
+	}
+
+	//create full triangle resources
+	{
+		struct FullscreenVertex
+		{
+			XMFLOAT3 position;
+			XMFLOAT2 uv;
+		};
+
+		FullscreenVertex fullscreenTriangleVertices[] =
+		{
+			// 1 triangle that fills the entire render target.
+
+			{ { -1.0f, -3.0f, 0.0f },{ 0.0f, 2.0f } },    // Bottom left
+			{ { -1.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },    // Top left
+			{ { 3.0f, 1.0f, 0.0f },{ 2.0f, 0.0f } },    // Top right
+		};
+
+		int vertexBufferSize = 3 * sizeof(FullscreenVertex);
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
+			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+			nullptr,
+			IID_PPV_ARGS(&m_fullscreenVertexBuffer)));
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_fullscreenVertexBufferUpload)));
+
+		// Copy data to the intermediate upload heap. It will be uploaded to the
+		// DEFAULT buffer when the color space triangle vertices are updated.
+		UINT8* mappedUploadHeap = nullptr;
+		ThrowIfFailed(m_fullscreenVertexBufferUpload->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedUploadHeap)));
+
+		memcpy(mappedUploadHeap, fullscreenTriangleVertices, vertexBufferSize);
+
+		m_fullscreenVertexBufferUpload->Unmap(0, &CD3DX12_RANGE(0, 0));
+
+		m_fullscreenVertexBufferView.BufferLocation = m_fullscreenVertexBuffer->GetGPUVirtualAddress();
+		m_fullscreenVertexBufferView.StrideInBytes = sizeof(FullscreenVertex);
+		m_fullscreenVertexBufferView.SizeInBytes = vertexBufferSize;
+
+		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_fullscreenVertexBuffer.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST));
+		m_commandList->CopyBufferRegion(m_fullscreenVertexBuffer.Get(), 0, m_fullscreenVertexBufferUpload.Get(), 0, m_fullscreenVertexBuffer->GetDesc().Width);
+		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_fullscreenVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
+	}
+
+
+}
+
+
+void FeaxRenderer::CreateRenderpassResources()
+{
 
 	// Create the depth buffer and views.
 	{
@@ -221,7 +375,7 @@ void FeaxRenderer::LoadAssets()
 		desc.m_clearColour = { 0.0f, 0.5f, 1.0f, 0.0f };
 
 		m_gbufferRT[GBuffer::Albedo] = m_rendertargetManager.Get(desc);
-			
+
 		desc.m_format = DXGI_FORMAT_R16G16B16A16_SNORM;
 		desc.m_clearColour = { 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -237,7 +391,7 @@ void FeaxRenderer::LoadAssets()
 		m_gbufferRS.Reset(2, 1);
 		m_gbufferRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 2, D3D12_SHADER_VISIBILITY_ALL);
-		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 5, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 6, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS.Finalise(m_device.Get(), L"GPrepassRS", rootSignatureFlags);
 
 		//Create Pipeline State Object
@@ -254,7 +408,7 @@ void FeaxRenderer::LoadAssets()
 		ID3DBlob* errorBlob = nullptr;
 
 		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_1", compileFlags, 0, &vertexShader, nullptr));
-		
+
 		compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
 
 		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_1", compileFlags, 0, &pixelShader, &errorBlob));
@@ -488,7 +642,7 @@ void FeaxRenderer::LoadAssets()
 		m_ssrRS.Reset(3, 1);
 		m_ssrRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
-		m_ssrRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 13, D3D12_SHADER_VISIBILITY_ALL);
+		m_ssrRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 14, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS.Finalise(m_device.Get(), L"SSR RS", rootSignatureFlags);
 
@@ -571,156 +725,20 @@ void FeaxRenderer::LoadAssets()
 		m_tonemappingPSO.SetPixelShader(pixelShader->GetBufferPointer(), pixelShader->GetBufferSize());
 		m_tonemappingPSO.Finalize(m_device.Get());
 	}
+
 	// Create the command list.
 	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), m_gbufferPSO.GetPipelineStateObject(), IID_PPV_ARGS(&m_commandList)));
 
 	Graphics::Context.m_commandList = m_commandList.Get();
+}
 
-	Scene* scene = new Scene();
+// Load the sample assets.
+void FeaxRenderer::LoadAssets()
+{    
+	Graphics::Context.m_device = m_device.Get();
 
-	Graphics::Context.m_scene = scene;
-
-	//load meshes
-	{
-		Material material = {};
-
-		//add statue
-		Model* model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\statue.obj"));
-		XMMATRIX objectToWorld = XMMatrixRotationY(60.0f);
-
-		material.m_albedoID = m_textureManager.Load("Marble\\Marble01_col.jpg");
-		material.m_roughness = 0.5f;
-		material.m_metalness = 0.0f;
-
-		int materialID = m_materials.size();
-
-		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
-		m_materials.push_back(material);
-
-		//add teapot
-		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\teapot.obj"));
-		objectToWorld = XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.5f, 3.0f, 0.0f));
-
-		material.m_albedoID = m_textureManager.Load("spnza_bricks_a_diff.jpg");
-		material.m_roughness = 0.9f;
-		material.m_metalness = 0.0f;
-
-		materialID = m_materials.size();
-
-	 	scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
-		m_materials.push_back(material);
-
-		//add another instance of the teapot
-		objectToWorld = XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslationFromVector(XMVectorSet(3.0f, 0.5f, 0.0f, 0.0f)) ;
-
-		material.m_albedoID = m_textureManager.Load("RedBrick\\Tiles37_col.jpg");
-		material.m_roughness = 0.1f;
-		material.m_metalness = 0.0f;
-
-		materialID = m_materials.size();
-
-		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-	
-		m_materials.push_back(material);
-
-		//add a wall
-		model = new Model(Mesh::CreateCube(m_device.Get()));
-		objectToWorld = XMMatrixScaling(0.25f, 8.0f, 15.0f) * XMMatrixTranslationFromVector(XMVectorSet(-7.5f, 4.0f, 0.0f, 0.0f)) ;
-	
-		material.m_albedoID = m_textureManager.Load("Brick\\Bricks23_col.jpg");
-		material.m_roughness = 0.1f;
-		material.m_metalness = 0.0f;
-
-		materialID = m_materials.size();
-
-		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
-		//add another wall
-		objectToWorld = XMMatrixScaling(15.0f, 8.0f, 0.25f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 4.0f, -7.5f, 0.0f));
-	
-		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
-		m_materials.push_back(material);
-
-		//add a floor
-	 	model = new Model(Mesh::CreatePlane(m_device.Get()));
-
-		material.m_albedoID = m_textureManager.Load("MetalGold\\Metal07_col.jpg"); 
-		material.m_roughness = 0.1f;
-		material.m_metalness = 0.0f;
-
-		materialID = m_materials.size();
-
-	 	objectToWorld = XMMatrixScaling(5, 1, 5);
-	 	scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
-		m_materials.push_back(material);
-
-		BVH::CreateBVHBuffer(Graphics::Context.m_scene);
-
-		Buffer::Description desc;
-		desc.m_elementSize = sizeof(Material);
-		desc.m_noofElements = m_materials.size();
-		desc.m_state = D3D12_RESOURCE_STATE_COPY_DEST;
-		desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
-
-		m_materialBuffer = new Buffer(desc, L"Materials Buffer", (unsigned char*) m_materials.data());
-	}
-
-	//create full triangle resources
-	{
-		struct FullscreenVertex
-		{
-			XMFLOAT3 position;
-			XMFLOAT2 uv;
-		};
-
-		FullscreenVertex fullscreenTriangleVertices[] =
-		{
-			// 1 triangle that fills the entire render target.
-
-			{ { -1.0f, -3.0f, 0.0f },{ 0.0f, 2.0f } },    // Bottom left
-			{ { -1.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },    // Top left
-			{ { 3.0f, 1.0f, 0.0f },{ 2.0f, 0.0f } },    // Top right
-		};
-
-		int vertexBufferSize = 3 * sizeof(FullscreenVertex);
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
-			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
-			nullptr,
-			IID_PPV_ARGS(&m_fullscreenVertexBuffer)));
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&m_fullscreenVertexBufferUpload)));
-
-		// Copy data to the intermediate upload heap. It will be uploaded to the
-		// DEFAULT buffer when the color space triangle vertices are updated.
-		UINT8* mappedUploadHeap = nullptr;
-		ThrowIfFailed(m_fullscreenVertexBufferUpload->Map(0, &CD3DX12_RANGE(0, 0), reinterpret_cast<void**>(&mappedUploadHeap)));
-
-		memcpy(mappedUploadHeap, fullscreenTriangleVertices, vertexBufferSize);
-
-		m_fullscreenVertexBufferUpload->Unmap(0, &CD3DX12_RANGE(0, 0));
-
-		m_fullscreenVertexBufferView.BufferLocation = m_fullscreenVertexBuffer->GetGPUVirtualAddress();
-		m_fullscreenVertexBufferView.StrideInBytes = sizeof(FullscreenVertex);
-		m_fullscreenVertexBufferView.SizeInBytes = vertexBufferSize;
-
-		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_fullscreenVertexBuffer.Get(), D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, D3D12_RESOURCE_STATE_COPY_DEST));
-		m_commandList->CopyBufferRegion(m_fullscreenVertexBuffer.Get(), 0, m_fullscreenVertexBufferUpload.Get(), 0, m_fullscreenVertexBuffer->GetDesc().Width);
-		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_fullscreenVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
-	}
+	CreateRenderpassResources();
+	LoadMeshes();
 
 	m_blueNoiseTexture = new Texture("Assets\\Textures\\LDR_RGBA_1.png", m_device.Get(), m_commandList.Get());
 
@@ -792,6 +810,7 @@ void FeaxRenderer::OnUpdate()
 	static int ReflectionsMode = 1;
 	static float StrideZCutoff = 0;
 	static float ZThickness = 0.05f;
+	static float SSRScale = 1.0f;
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
 	{
@@ -808,6 +827,7 @@ void FeaxRenderer::OnUpdate()
 
 		//ImGui::SliderFloat("StrideZCutoff", &StrideZCutoff, 0, 10);
 		//ImGui::SliderFloat("ZThickness", &ZThickness, 0, 10);
+		ImGui::SliderFloat("SSRScale", &SSRScale, 0, 10);
 
 		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 		ImGui::End();
@@ -920,7 +940,8 @@ void FeaxRenderer::OnUpdate()
 	ssrData.Projection = projection;
 	ssrData.InvProjection = XMMatrixInverse(&determinant, projection);
 
-	XMStoreFloat4(&ssrData.CameraPos, cameraPos);
+	XMStoreFloat3(&ssrData.CameraPos, cameraPos);
+	ssrData.SSRScale = SSRScale;
 	ssrData.LightDirection = ToFloat4(lightDir);
 
 	ssrData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };

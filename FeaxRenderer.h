@@ -107,7 +107,8 @@ private:
 		XMMATRIX	InvView;
 
 		XMFLOAT4	RTSize;
-		XMFLOAT4	CameraPos;
+		XMFLOAT3	CameraPos;
+		float		SSRScale;
 		XMFLOAT4	LightDirection;
 
 		float		ZThickness; // thickness to ascribe to each pixel in the depth buffer
@@ -192,6 +193,8 @@ private:
     ComPtr<ID3D12Fence> m_fence;
     UINT64 m_fenceValue;
 
+	void LoadMeshes();
+	void CreateRenderpassResources();
     void LoadPipeline();
     void LoadAssets();
     void PopulateCommandList();

@@ -26,9 +26,11 @@ cbuffer perModelInstanceCB : register(b1)
 	float		NormalID;
 	float		Roughness;
 	float		Metalness;
+	float2		UVscale;
+	float2		NormalScale;
 };
 
-Texture2D<float4> Diffuse[] : register(t0);
+Texture2D<float4> Textures[] : register(t0);
 SamplerState SamplerLinear : register(s0);
 
 PSInput VSMain(VSInput input)
@@ -54,8 +56,15 @@ PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
 
-	float3 normal = normalize(input.normal.xyz);// *0.5 + 0.5;
-	float3 albedo = Diffuse[AlbedoID].Sample(SamplerLinear, input.uv).rgb;
+	float3 n = 0;
+
+	if (NormalID >= 0)
+	{
+		n = Textures[NormalID].Sample(SamplerLinear, UVscale * input.uv).rgb * 2 - 1;
+	}
+
+	float3 normal = normalize(input.normal.xyz +  float3(NormalScale * n.xy, 0));
+	float3 albedo = Textures[AlbedoID].Sample(SamplerLinear, UVscale * input.uv).rgb;
 
 	output.colour.rgb = albedo;
 	output.colour.a = Metalness;

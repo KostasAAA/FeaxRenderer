@@ -19,9 +19,6 @@ Texture2D<float4>			blueNoiseBuffer : register(t4);
 
 RWTexture2D<float>			outputRT : register(u0);
  
-//Texture2D					diffuseMaps[] : register(t5, space1);
-//SamplerState				samplerPoint : register(s6);
-
 #define THREADX 8
 #define THREADY 8
 #define THREADGROUPSIZE (THREADX*THREADY)
@@ -97,7 +94,6 @@ float2 randomOnDisk(float2 uv)
 	rand.y = rand01(1-uv.yx);
 
 	float rho = sqrt(rand.x);
-//	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w * PI/2;// / (2 * PI);
 	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w;
 
 	return rho * float2(cos(phi), sin(phi));
@@ -108,7 +104,6 @@ float2 randomOnDiskBlue(int2 screenPos)
 	float3 rand = blueNoiseBuffer[int2(screenPos.x % 64, screenPos.y % 64)].xyz;
 
 	float rho = sqrt(rand.x);
-	//	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w * PI/2;// / (2 * PI);
 	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w;
 
 	return rho * float2(cos(phi), sin(phi));
@@ -153,7 +148,6 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 		int w = 1;
 		float scale = 0.02;
-		//scale = 1;
 
 		for (int y = 0; y < w; y++)
 		{
@@ -163,14 +157,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 				float ry = scale * (rand01((DTid.xy + float2(y, x))* rtSize.zw) - 0.5);
 				float rx = scale * (rand01((DTid.yx + float2(x, y))* rtSize.zw) - 0.5);
 #else
-				float2 pointOnDisk;
-
-			//	if ( uv.x < 0.5)
-			//		pointOnDisk = randomOnDisk( uv + float2(x, y)* rtSize.zw );
-			//	else
-					pointOnDisk = randomOnDiskBlue(DTid.xy + int2(x, y));
-
-				//				float2 pointOnDisk = randomOnDisk(worldPos.xz + float2(x, y)* rtSize.zw);
+				float2 pointOnDisk = randomOnDiskBlue(DTid.xy + int2(x, y));
 
 				float ry = 0.5 * scale * pointOnDisk.y;
 				float rx = 0.5 * scale * pointOnDisk.x;
@@ -188,14 +175,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	float shadowFactor = 1 - float(collision);
 
-	float historyValue = shadowHistory[DTid.xy];
+//	float historyValue = shadowHistory[DTid.xy];
 
-//	shadowFactor = blueNoiseBuffer[int2(DTid.x % 64, DTid.y % 64)].xyz;
-
-//	if ( uv.x < 0.5)
-//		outputRT[DTid.xy] =  lerp(shadowFactor, historyValue, 0.95);
-//	else
-		outputRT[DTid.xy] = shadowFactor;
-
-	//historyRT[DTid.xy] = 
+	outputRT[DTid.xy] = shadowFactor;
 }

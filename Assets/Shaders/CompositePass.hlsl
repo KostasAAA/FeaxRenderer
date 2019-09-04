@@ -42,10 +42,7 @@ PSOutput PSMain(PSInput input)
 	float metalness = albedo.w;
 	albedo.rgb *= 1 - metalness;
 
-	output.colour.rgb = albedo *diffuse + specular;
-
-	//if (input.position.x >= 1280 / 2 - 1 && input.position.x <= 1280 / 2 + 1)
-	//	output.colour.rgb = float3(1, 0, 0);
+	output.colour.rgb = albedo * diffuse + specular;
 
     return output;
 }
