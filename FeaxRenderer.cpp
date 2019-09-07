@@ -202,6 +202,34 @@ void FeaxRenderer::LoadMeshes()
 		objectToWorld = XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslationFromVector(XMVectorSet(3.0f, 0.5f, 0.0f, 0.0f));
 
 		material.m_albedoID = m_textureManager.Load("RedBrick\\Tiles37_col.jpg");
+		material.m_roughness = 0.4f;
+		material.m_metalness = 0.0f;
+
+		materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+#if 0
+		//add sphere
+		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\sphere.obj"));
+		objectToWorld = XMMatrixScaling(1, 1, 1) * XMMatrixTranslationFromVector(XMVectorSet(6.0f, 1.5f, 3.0f, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("spnza_bricks_a_diff.jpg");
+		material.m_roughness = 0.9f;
+		material.m_metalness = 0.0f;
+
+		materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
+		//add another instance of the sphere
+		objectToWorld = XMMatrixScaling(1, 1,1) * XMMatrixTranslationFromVector(XMVectorSet(3.0f, 1.5f, 6.0f, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("RedBrick\\Tiles37_col.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
 
@@ -210,6 +238,8 @@ void FeaxRenderer::LoadMeshes()
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
 		m_materials.push_back(material);
+#endif
+
 
 		//add a wall
 		model = new Model(Mesh::CreateCube(m_device.Get()));

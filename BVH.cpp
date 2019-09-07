@@ -327,7 +327,7 @@ namespace BVH
 
 				//when on the left branch, how many float4 elements we need to skip to reach the right branch?
 				bbox->Vertex0.w = sizeof(BVHLeafBBoxGPU) / sizeof(XMFLOAT4);
-				bbox->Vertex1MinusVertex0.w = node->TriangleIndex;// store the triangle index, we may need it to access normals and uvs
+				bbox->Vertex1MinusVertex0.w = node->TriangleIndex;// store the triangle index, we  need it to access normals and uvs
 				bbox->Vertex2MinusVertex0.w = m_materialIDList[node->TriangleIndex];
 
 				dataOffset += sizeof(BVHLeafBBoxGPU);

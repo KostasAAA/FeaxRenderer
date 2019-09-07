@@ -474,7 +474,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 			float NdotL = saturate(dot(n, LightDirection.xyz));
 
-			float lightIntensity = LightDirection.w * (1- collision);
+			float lightIntensity = LightDirection.w * (1 - collision);
 
 			result =  float4( albedo.rgb * (lightIntensity * NdotL + 0.3) + lightIntensity * specular, 1);
 		}
