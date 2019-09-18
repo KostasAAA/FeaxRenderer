@@ -89,7 +89,7 @@ PSOutput PSMain(PSInput input)
 		shadow /= 273.0;
 		//shadow /= (2 * w + 1) * (2 * w + 1);
 
-		//shadow =  shadowBuffer[input.position.xy ].x;
+		shadow =  shadowBuffer[input.position.xy ].x;
 
 		//if (input.position.x >= 1280/2)
 		 //	shadow = shadowBuffer[input.position.xy].x;

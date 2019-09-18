@@ -361,9 +361,11 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 {
 	const uint2 screenPos = DTid.xy;
 
+	float3 mainRT = mainBuffer[screenPos].xyz;
+
 	if (ReflectionsMode == 1)
 	{
-		outputRT[screenPos] = 0;
+		outputRT[screenPos] = float4(mainRT, 1);
 		return;
 	}
 
@@ -371,7 +373,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	if ( depth == 1)
 	{
-		outputRT[screenPos] = 0;
+		outputRT[screenPos] = float4(mainRT, 1);
 		return;
 	}
 
@@ -416,7 +418,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		intersection = false;
 	}
 
-	float4 result = 0;// float4(0.0f, 0.5f, 1.0f, 1);
+	float4 result = 0;
 
 	float4 worldPos = mul(InvViewProjection, clipPos);
 	worldPos.xyz /= worldPos.w;
@@ -426,7 +428,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	if ( intersection && !((int)ReflectionsMode & 1) )
 	{
-		result =  mainBuffer[hitPixel];
+		result = mainBuffer[hitPixel];
 	}
 	else if ( ReflectionsMode >= 3.0 ) //raytrace to find reflection
 	{
@@ -488,6 +490,6 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	float3 F = Fresnel(specularColour, L, H);
 
-	outputRT[screenPos] = float4( result.rgb * (F * SSRScale) , 1);
+	outputRT[screenPos] = float4( result.rgb * (F * SSRScale) + mainRT.rgb, 1);
 }
 

@@ -25,17 +25,15 @@ cbuffer LightingConstantBuffer : register(b0)
 	unsigned int LightingDebug;
 }
 
-Texture2D<float4> colourBuffer : register(t0);
-Texture2D<float4> ssrBuffer : register(t1);
+Texture2D<float4> mainBuffer : register(t0);
 
 float4 PSMain(PSInput input) : SV_Target
 {
 	float4 output = 0;
 
-	float3 albedo = colourBuffer[input.position.xy].rgb;
-	float3 ssr = ssrBuffer[input.position.xy].rgb;
+	float3 result = mainBuffer[input.position.xy].rgb;
 
-	output.rgb = pow ( abs(LightingDebug.x * albedo + ssr), 1/2.2);
+	output.rgb = pow ( abs(result), 1/2.2);
 
 	return output;
 }

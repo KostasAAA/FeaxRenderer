@@ -97,6 +97,15 @@ private:
 		XMFLOAT4	CameraPos;
 	};
 
+	__declspec(align(16)) struct TAAPassCBData
+	{
+		XMMATRIX	ViewProjectionPrevious;
+		XMMATRIX	InvViewProjection;
+		XMFLOAT4	RTSize;
+		XMFLOAT4	Config;
+		XMFLOAT2	JitterOffset;
+	};
+
 	__declspec(align(16)) struct SSRCBData
 	{
 		XMMATRIX	ViewProjection;
@@ -164,6 +173,13 @@ private:
 	Buffer*			m_ssrCB;
 	SSRCBData		m_ssrCBData;
 
+	//Temporal AA pass
+	Rendertarget*	m_taaHistoryRT;
+	ComputePSO		m_taaPSO;
+	RootSignature	m_taaRS;
+	Buffer*			m_taaCB;
+	TAAPassCBData	m_taaCBData;
+
 	//tonemapping pass
 	Rendertarget*	m_backbuffer[Graphics::FrameCount];
 	GraphicsPSO		m_tonemappingPSO;
@@ -186,6 +202,10 @@ private:
 
 	std::vector<Material>	m_materials;
 	Buffer*					m_materialBuffer;
+
+	bool					m_useTAA;
+	XMMATRIX				m_viewProjectionPrevious;
+	XMFLOAT2				m_jitterPrevious;
 
     // Synchronization objects.
     UINT m_frameIndex;
