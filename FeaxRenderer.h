@@ -106,6 +106,12 @@ private:
 		XMFLOAT2	JitterOffset;
 	};
 
+	__declspec(align(16)) struct ImageZoomCBData
+	{
+		XMFLOAT4	RTSize;
+		XMFLOAT4	Config;
+	};
+
 	__declspec(align(16)) struct SSRCBData
 	{
 		XMMATRIX	ViewProjection;
@@ -184,6 +190,7 @@ private:
 	Rendertarget*	m_backbuffer[Graphics::FrameCount];
 	GraphicsPSO		m_tonemappingPSO;
 	RootSignature	m_tonemappingRS;
+	Buffer*			m_tonemappingCB;
 	bool			m_SSRDebug;
 
 	ComPtr<ID3D12CommandAllocator> m_commandAllocator;

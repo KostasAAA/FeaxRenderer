@@ -135,19 +135,25 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 	}
 
 	float3 current = mainBuffer[int2(screenPos)].xyz;
-	float3 history = historyBuffer.SampleLevel(SamplerLinear, historyUV, 0).rgb;
+	float3 history;
+	
+	//use reprojection?
+	if(AAConfig.z > 0)
+		history = historyBuffer.SampleLevel(SamplerLinear, historyUV, 0).rgb;
+	else
+		history = historyBuffer[screenPos].rgb;
 
-	int NeighborhoodClampMode = 3;//AAConfig.y;
+	int NeighborhoodClampMode = AAConfig.y;
 
-	if (NeighborhoodClampMode == 1) // ClampModes_RGB_Clamp
+	if (NeighborhoodClampMode == 1) // RGB Clamp
 	{
 		history = clamp(history, clrMin, clrMax);
 	}
-	else if (NeighborhoodClampMode == 2 ) // ClampModes_RGB_Clip
+	else if (NeighborhoodClampMode == 2 ) // RGB Clip
 	{
 		history = ClipAABB(clrMin, clrMax, history, m1 / mWeight);
 	}
-	else if (NeighborhoodClampMode == 3 )//ClampModes_Variance_Clip
+	else if (NeighborhoodClampMode == 3 )// Variance Clip
 	{
 		float VarianceClipGamma = 1;
 		float3 mu = m1 / mWeight;
