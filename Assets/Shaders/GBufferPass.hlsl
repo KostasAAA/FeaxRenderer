@@ -17,6 +17,8 @@ struct PSInput
 cbuffer GPrepassCB : register(b0)
 {
 	float4x4 ViewProjection;
+	float	MipBias;
+	float3  pad;
 };
 
 cbuffer perModelInstanceCB : register(b1)
@@ -60,13 +62,15 @@ PSOutput PSMain(PSInput input)
 
 	if (NormalID >= 0)
 	{
-		n = Textures[NormalID].Sample(SamplerLinear, UVscale * input.uv).rgb * 2 - 1;
+		n = Textures[NormalID].SampleBias(SamplerLinear, UVscale * input.uv, MipBias).rgb * 2 - 1;
 	}
 
 	float3 normal = normalize(input.normal.xyz +  float3(NormalScale * n.xy, 0));
-	float3 albedo = Textures[AlbedoID].Sample(SamplerLinear, UVscale * input.uv).rgb;
+	float4 albedo = Textures[AlbedoID].SampleBias(SamplerLinear, UVscale * input.uv, MipBias).rgba;
 
-	output.colour.rgb = albedo;
+	clip(albedo.a - 0.5f);
+
+	output.colour.rgb =  albedo;
 	output.colour.a = Metalness;
 	output.normal.xyz = normal;
 	output.normal.w = Roughness;

@@ -45,7 +45,7 @@ float4 PSMain(PSInput input) : SV_Target
 
 		result = mainBuffer[zoomPos].rgb;
 
-		if ( int(input.position.x) % int(zoomFactor) == 0 || int(input.position.y) % int(zoomFactor) == 0 )
+		if (ZoomConfig.z > 0 && ( int(input.position.x) % int(zoomFactor) == 0 || int(input.position.y) % int(zoomFactor) == 0 ))
 			result = float3(1, 0, 0);
 	}
 

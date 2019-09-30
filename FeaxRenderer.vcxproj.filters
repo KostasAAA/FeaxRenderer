@@ -244,6 +244,12 @@
     <CustomBuild Include="Assets\Shaders\HybridSSR.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="Assets\Shaders\TemporalAA.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Assets\Shaders\Downsample.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Assets\Shaders\ClosestHit.hlsl">
@@ -258,7 +264,7 @@
     <FxCompile Include="Assets\Shaders\RayGen.hlsl">
       <Filter>Assets\Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Assets\Shaders\TemporalAA.hlsl">
+    <FxCompile Include="Assets\Shaders\MotionVectors.hlsl">
       <Filter>Assets\Shaders</Filter>
     </FxCompile>
   </ItemGroup>

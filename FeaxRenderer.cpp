@@ -30,7 +30,6 @@ FeaxRenderer::FeaxRenderer(UINT width, UINT height, std::wstring name) :
 
 FeaxRenderer::~FeaxRenderer()
 {
-	int i = 0;
 }
 
 void FeaxRenderer::OnInit()
@@ -280,6 +279,33 @@ void FeaxRenderer::LoadMeshes()
 
 		m_materials.push_back(material);
 
+		//add trees
+		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\Tree 02\\Tree.obj"));
+		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.0f, 7.0f, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("DB2X2_L01.png");
+		material.m_roughness = 0.9f;
+		material.m_metalness = 0.0f;
+		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
+
+		materialID = m_materials.size();
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(7.0f, 0.0f, 0.0f, 0.0f));
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(8.0f, 0.0f, -10.0f, 0.0f));
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(-8.0f, 0.0f, 10.0f, 0.0f));
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(-10.0f, 0.0f, -10.0f, 0.0f));
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		m_materials.push_back(material);
+
 		//add a floor
 		model = new Model(Mesh::CreatePlane(m_device.Get()));
 
@@ -422,7 +448,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		desc.m_height = m_height;
 		desc.m_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		desc.m_flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-		desc.m_clearColour = { 0.0f, 0.5f, 1.0f, 0.0f };
+		desc.m_clearColour = { 0.0f, 0.7f, 1.0f, 0.0f };
 
 		m_gbufferRT[GBuffer::Albedo] = m_rendertargetManager.Get(desc);
 
@@ -441,7 +467,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_gbufferRS.Reset(2, 1);
 		m_gbufferRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 2, D3D12_SHADER_VISIBILITY_ALL);
-		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 6, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 7, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS.Finalise(m_device.Get(), L"GPrepassRS", rootSignatureFlags);
 
 		//Create Pipeline State Object
@@ -567,7 +593,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		//create root signature
 		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS |
+		//	D3D12_ROOT_SIGNATURE_FLAG_DENY_VERTEX_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
@@ -700,7 +726,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_ssrRS.Reset(3, 1);
 		m_ssrRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
-		m_ssrRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 14, D3D12_SHADER_VISIBILITY_ALL);
+		m_ssrRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 16, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS.Finalise(m_device.Get(), L"SSR RS", rootSignatureFlags);
 
@@ -741,6 +767,64 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_ssrCB = new Buffer(cbDesc, L"SSR CB");
 	}
 
+	//create resources for motion vector pass
+	{
+		Rendertarget::Description desc = {};
+		desc.m_width = m_width;
+		desc.m_height = m_height;
+		desc.m_format = DXGI_FORMAT_R16G16_SNORM;
+		desc.m_flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		desc.m_clearColour = { 0,0,0,0 };
+
+		//create rendertargets
+		m_velocityRT = m_rendertargetManager.Get(desc);
+
+		//create root signature
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+		m_velocityRS.Reset(3, 0);
+		m_velocityRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
+		m_velocityRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
+		m_velocityRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
+		m_velocityRS.Finalise(m_device.Get(), L"Velocity RS", rootSignatureFlags);
+
+		//create pipeline state object
+		ComPtr<ID3DBlob> computeShader;
+
+#if defined(_DEBUG)
+		// Enable better shader debugging with the graphics debugging tools.
+		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+		UINT compileFlags = 0;
+#endif
+
+#define D3D_COMPILE_STANDARD_FILE_INCLUDE ((ID3DInclude*)(UINT_PTR)1)
+
+		ID3DBlob* errorBlob = nullptr;
+
+		compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
+
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\MotionVectors.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
+
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		m_velocityPSO.SetRootSignature(m_velocityRS);
+		m_velocityPSO.SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		m_velocityPSO.Finalize(m_device.Get());
+
+		//create constant buffer for shadowpass
+		Buffer::Description cbDesc;
+		cbDesc.m_elementSize = sizeof(SSRCBData);
+		cbDesc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+		cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
+
+		m_velocityCB = new Buffer(cbDesc, L"Velocity CB");
+	}
+
 	//create resources for temporal AA resolve
 	{
 		Rendertarget::Description desc = {};
@@ -759,7 +843,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_taaRS.Reset(3, 1);
 		m_taaRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
 		m_taaRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
-		m_taaRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 3, D3D12_SHADER_VISIBILITY_ALL);
+		m_taaRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_ALL);
 		m_taaRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
 		m_taaRS.Finalise(m_device.Get(), L"TAA RS", rootSignatureFlags);
 
@@ -843,7 +927,37 @@ void FeaxRenderer::CreateRenderpassResources()
 		cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
 
 		m_tonemappingCB = new Buffer(cbDesc, L"Tonemapping CB");
+	}
 
+	//create resources for texture downsample
+	{
+		//create root signature
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+		Graphics::Context.m_downsampleRS.Reset(3, 1);
+		Graphics::Context.m_downsampleRS.InitStaticSampler(0, SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_ALL);
+		Graphics::Context.m_downsampleRS[0].InitAsConstants(0, 2, D3D12_SHADER_VISIBILITY_ALL);
+		Graphics::Context.m_downsampleRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
+		Graphics::Context.m_downsampleRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
+		Graphics::Context.m_downsampleRS.Finalise(m_device.Get(), L"Downsample RS", rootSignatureFlags);
+
+		//create pipeline state object
+		ComPtr<ID3DBlob> computeShader;
+
+#if defined(_DEBUG)
+		// Enable better shader debugging with the graphics debugging tools.
+		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+		UINT compileFlags = 0;
+#endif
+
+#define D3D_COMPILE_STANDARD_FILE_INCLUDE ((ID3DInclude*)(UINT_PTR)1)
+
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\Downsample.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_0", compileFlags, 0, &computeShader, nullptr));
+
+		Graphics::Context.m_downsamplePSO.SetRootSignature(Graphics::Context.m_downsampleRS);
+		Graphics::Context.m_downsamplePSO.SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		Graphics::Context.m_downsamplePSO.Finalize(m_device.Get());
 	}
 
 	// Create the command list.
@@ -954,11 +1068,14 @@ void FeaxRenderer::OnUpdate()
 	static float SSRScale = 1.0f;
 	static int TAAMode = 5;
 	static int TAAClamp = 3;
-	static bool TAAReproject = true;
+	static int TAAReprojectMode = 1;
 	static bool ZoomEnable = false;
 	static int ZoomFactor = 4;
+	static bool ZoomGrid = false;
 	static float TAABlendFactor = 0.1f;
 	static bool EnableManualJitter = false;
+	static float MipBias = -1.0f;
+	static int DilationMode = 0;
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
 	{
@@ -991,8 +1108,15 @@ void FeaxRenderer::OnUpdate()
 					frameCount++;
 				}
 			}
-			ImGui::Checkbox("Use reprojection", &TAAReproject);
 			ImGui::SliderFloat("Feedback", &TAABlendFactor, 0, 1);
+			ImGui::SliderFloat("Mip Bias", &MipBias, -5, 5);
+
+			if (ImGui::CollapsingHeader("Reprojection Mode"))
+			{
+				ImGui::RadioButton("None", &TAAReprojectMode, 0);
+				ImGui::RadioButton("Standard", &TAAReprojectMode, 1);
+				ImGui::RadioButton("Filtered", &TAAReprojectMode, 2);
+			}
 			if (ImGui::CollapsingHeader("Sample pattern"))
 			{
 				ImGui::RadioButton("Uniform 4", &TAAMode, 1);
@@ -1008,10 +1132,18 @@ void FeaxRenderer::OnUpdate()
 				ImGui::RadioButton("RGB Clip", &TAAClamp, 2);
 				ImGui::RadioButton("Variance Clip", &TAAClamp, 3);
 			}
+			if (ImGui::CollapsingHeader("Velocity dilation mode"))
+			{
+				ImGui::RadioButton("Standard", &DilationMode, 0);
+				ImGui::RadioButton("Nearest Depth", &DilationMode, 1);
+				ImGui::RadioButton("Largest Velocity", &DilationMode, 2);
+			}
 		}
 		if (ImGui::CollapsingHeader("Image Zoom"))
 		{
 			ImGui::Checkbox("Enable Zoom", &ZoomEnable);
+			ImGui::SameLine();
+			ImGui::Checkbox("Show Grid", &ZoomGrid);			
 			ImGui::SliderInt("Zoom Factor", &ZoomFactor, 1, 30);
 		}
 
@@ -1103,7 +1235,7 @@ void FeaxRenderer::OnUpdate()
 		switch (TAAMode)
 		{
 			case 1:
-				jitter = Sample4[(int)frameCount % 4];
+				jitter = Sample4[frameCount % 4];
 
 				//jitter = Sample2[(int)frameCount % 2];
 
@@ -1111,7 +1243,7 @@ void FeaxRenderer::OnUpdate()
 				jitter.y *= 2;
 			break;
 			case 2:
-				jitter = Sample4Rot[(int)frameCount % 4];
+				jitter = Sample4Rot[frameCount % 4];
 				jitter.x *= 2;
 				jitter.y *= 2;
 			break;
@@ -1120,7 +1252,7 @@ void FeaxRenderer::OnUpdate()
 				std::vector<XMFLOAT2> sequence;
 				InitializeHalton_2_3(sequence, 16);
 
-				jitter = sequence[(int)frameCount % 16];
+				jitter = sequence[frameCount % 16];
 
 				jitter.x = 2.0f * jitter.x - 1.0f;
 				jitter.y = 2.0f * jitter.y - 1.0f;
@@ -1131,7 +1263,7 @@ void FeaxRenderer::OnUpdate()
 				std::vector<XMFLOAT2> sequence;
 				InitializeHalton_2_3(sequence, 32);
 
-				jitter = sequence[(int)frameCount % 32];
+				jitter = sequence[frameCount % 32];
 
 				jitter.x = 2.0f * jitter.x - 1.0f;
 				jitter.y = 2.0f * jitter.y - 1.0f;
@@ -1139,15 +1271,15 @@ void FeaxRenderer::OnUpdate()
 			break;
 			case 5:
 			{
-				jitter = Hammersley2D((int)frameCount % 16, 16);
+				jitter = Hammersley2D(frameCount % 16 + 1, 16);
 				jitter.x = 2.0f * jitter.x - 1.0f;
 				jitter.y = 2.0f * jitter.y - 1.0f;
+
+				jitter.x *= 0.9f;
+				jitter.y *= 0.9f;
 			}
 			break;
 		}
-
-		//jitter.x *= 0.8f;
-		//jitter.y *= 0.8f;
 
 		XMMATRIX jitterMatrix = XMMatrixTranslation(jitter.x / m_width, jitter.y / m_height, 0.0f);
 
@@ -1170,6 +1302,7 @@ void FeaxRenderer::OnUpdate()
 
 	GPrepassCBData gbufferPassData;
 	gbufferPassData.ViewProjection = viewProjection;
+	gbufferPassData.MipBias = m_useTAA ? MipBias : 0.0f;
 
 	memcpy(m_gbufferCB->Map(), &gbufferPassData, sizeof(gbufferPassData));
 
@@ -1178,6 +1311,7 @@ void FeaxRenderer::OnUpdate()
 	XMStoreFloat4(&lightPassData.CameraPos, cameraPos);
 	lightPassData.LightDirection = ToFloat4(lightDir);
 	lightPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
+	lightPassData.Jitter = jitter;
 
 	memcpy(m_lightingCB->Map(), &lightPassData, sizeof(lightPassData));
 
@@ -1232,7 +1366,8 @@ void FeaxRenderer::OnUpdate()
 	taaData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
 	taaData.Config.x =  m_useTAA ? TAABlendFactor : 1.0f;
 	taaData.Config.y = TAAClamp;
-	taaData.Config.z = TAAReproject ? 1.0f : 0.0f;
+	taaData.Config.z = TAAReprojectMode;
+	taaData.Config.w = DilationMode;
 
 	taaData.JitterOffset = XMFLOAT2(
 		0.5f * (jitter.x - m_jitterPrevious.x) * taaData.RTSize.z,
@@ -1240,11 +1375,13 @@ void FeaxRenderer::OnUpdate()
 	);
 
 	memcpy(m_taaCB->Map(), &taaData, sizeof(taaData));
+	memcpy(m_velocityCB->Map(), &taaData, sizeof(taaData)); // copy the same data to the motion vector CB for the moment
 
 	ImageZoomCBData zoomData = {};
 	zoomData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
 	zoomData.Config.x = ZoomEnable ? 1.0f : 0.0f;
 	zoomData.Config.y = ZoomFactor;
+	zoomData.Config.z = ZoomGrid ? 1.0f : 0.0f;
 
 	memcpy(m_tonemappingCB->Map(), &zoomData, sizeof(zoomData));
 
@@ -1300,6 +1437,7 @@ void FeaxRenderer::OnDestroy()
 	delete m_ssrCB;
 	delete m_taaCB;
 	delete m_tonemappingCB;
+	delete m_velocityCB;
 
 	delete Graphics::Context.m_scene;
 	Graphics::Context.m_scene = nullptr;
@@ -1389,7 +1527,7 @@ void FeaxRenderer::PopulateCommandList()
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
 			m_commandList->OMSetRenderTargets(_countof(rtvHandles), rtvHandles, FALSE, &dsvHandle);
 
-			const float clearColor[] = { 0.0f, 0.5f, 1.0f, 0.0f };
+			const float clearColor[] = { 0.0f, 0.7f, 1.0f, 0.0f };
 			const float clearNormal[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 			m_commandList->ClearRenderTargetView(rtvHandles[0], clearColor, 0, nullptr);
 			m_commandList->ClearRenderTargetView(rtvHandles[1], clearNormal, 0, nullptr);
@@ -1589,6 +1727,39 @@ void FeaxRenderer::PopulateCommandList()
 			m_commandList->Dispatch(threadGroupSizeX, threadGroupSizeY, 1);
 		}
 
+		//calculate velocity buffer
+		{
+			ResourceBarrierBegin(Graphics::Context);
+			m_velocityRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			ResourceBarrierEnd(Graphics::Context);
+
+			m_commandList->SetPipelineState(m_velocityPSO.GetPipelineStateObject());
+			m_commandList->SetComputeRootSignature(m_velocityRS.GetSignature());
+
+			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_velocityCB->GetCBV());
+
+			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(1);
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+
+			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
+			gpuDescriptorHeap->AddToHandle(uavHandle, m_velocityRT->GetUAV());
+
+			m_commandList->SetComputeRootDescriptorTable(0, cbvHandle.GetGPUHandle());
+			m_commandList->SetComputeRootDescriptorTable(1, srvHandle.GetGPUHandle());
+			m_commandList->SetComputeRootDescriptorTable(2, uavHandle.GetGPUHandle());
+
+			const uint32_t threadGroupSizeX = m_width / 8 + 1;
+			const uint32_t threadGroupSizeY = m_height / 8 + 1;
+
+			m_commandList->Dispatch(threadGroupSizeX, threadGroupSizeY, 1);
+
+			//copy main RT to history
+			ResourceBarrierBegin(Graphics::Context);
+			m_velocityRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			ResourceBarrierEnd(Graphics::Context);
+		}
+
 		//temporal AA resolve
 		{
 			Scene* scene = Graphics::Context.m_scene;
@@ -1605,10 +1776,11 @@ void FeaxRenderer::PopulateCommandList()
 			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(cbvHandle, m_taaCB->GetCBV());
 
-			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(3);
+			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(4);
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_ssrRT->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_taaHistoryRT->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_velocityRT->GetSRV());
 
 			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(uavHandle, m_mainRT->GetUAV());

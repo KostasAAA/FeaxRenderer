@@ -31,8 +31,10 @@
 #include "DXSample.h"
 
 #include "Maths.h"
-#include "GraphicsContext.h"
 #include "Resources\Graphics.h"
+#include "Resources\PipelineState.h"
+#include "Resources\RootSignature.h"
+#include "GraphicsContext.h"
 #include "GPUProfiler.hpp"
 
 #if defined DXR_ENABLED

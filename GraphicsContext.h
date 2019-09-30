@@ -5,6 +5,7 @@ class DescriptorHeapManager;
 class Scene;
 class Buffer;
 class Rendertarget;
+class ComputePSO;
 
 struct GraphicsContext
 {
@@ -16,6 +17,9 @@ struct GraphicsContext
 	//add them here for the moment, need a better way to pass them around
 	Buffer*						m_shadowsCB;
 	Rendertarget*				m_shadowsRT;
+
+	RootSignature				m_downsampleRS;
+	ComputePSO					m_downsamplePSO;
 
 	unsigned int				m_frameIndex;
 

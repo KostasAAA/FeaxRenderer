@@ -72,6 +72,10 @@ void Graphics::InitializeCommonState(void)
 	SamplerLinearWrapDesc.MinLOD = 0.0f;
 	SamplerLinearWrapDesc.MaxLOD = D3D12_FLOAT32_MAX;
 
+	SamplerLinearClampDesc = SamplerLinearWrapDesc;
+	SamplerLinearClampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	SamplerLinearClampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	SamplerLinearClampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 /*
     SamplerLinearWrap = SamplerLinearWrapDesc.CreateDescriptor();
 

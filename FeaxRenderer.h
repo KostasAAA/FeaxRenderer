@@ -78,6 +78,7 @@ private:
 	__declspec(align(16)) struct GPrepassCBData
 	{
 		XMMATRIX ViewProjection;
+		float MipBias;
 	};
 
 	__declspec(align(16)) struct LightPassCBData
@@ -86,6 +87,7 @@ private:
 		XMFLOAT4 LightDirection;
 		XMFLOAT4 CameraPos;
 		XMFLOAT4 RTSize;
+		XMFLOAT2 Jitter;
 	};
 
 	__declspec(align(16)) struct ShadowPassCBData
@@ -178,6 +180,13 @@ private:
 	RootSignature	m_ssrRS;
 	Buffer*			m_ssrCB;
 	SSRCBData		m_ssrCBData;
+
+	//Motion vector pass
+	Rendertarget*	m_velocityRT;
+	ComputePSO		m_velocityPSO;
+	RootSignature	m_velocityRS;
+	Buffer*			m_velocityCB;
+	TAAPassCBData	m_velocityCBData;
 
 	//Temporal AA pass
 	Rendertarget*	m_taaHistoryRT;

@@ -44,5 +44,7 @@ PSOutput PSMain(PSInput input)
 
 	output.colour.rgb = albedo * diffuse + specular;
 
+	//output.colour.rgb = diffuse;
+
     return output;
 }

@@ -384,7 +384,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 	float3 normalVS = mul((float3x3)View, normal.xyz);
 
 	//get world position from depth
-	float2 uv = screenPos.xy * RTSize.zw;
+	float2 uv = (screenPos.xy + 0.5) * RTSize.zw;
 	float4 clipPos = float4(2 * uv - 1, depth, 1);
 	clipPos.y = -clipPos.y;
 

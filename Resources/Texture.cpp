@@ -6,6 +6,18 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "..\stb_image.h"
 
+
+// Compute the number of texture levels needed to reduce to 1x1.  This uses
+// _BitScanReverse to find the highest set bit.  Each dimension reduces by
+// half and truncates bits.  The dimension 256 (0x100) has 9 mip levels, same
+// as the dimension 511 (0x1FF).
+static inline uint32_t ComputeNumMips(uint32_t Width, uint32_t Height)
+{
+	uint32_t HighBit;
+	_BitScanReverse((unsigned long*)&HighBit, Width | Height);
+	return HighBit + 1;
+}
+
 Texture::Texture(int width, int height, int noofChannels, unsigned char *data)
 : m_width(width)
 , m_height(height)
@@ -46,13 +58,15 @@ Texture::Texture(const char* filename, ID3D12Device* device, ID3D12GraphicsComma
 
 void Texture::CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
+	UINT16 noofMips = ComputeNumMips(m_width, m_height);
+
 	// Describe and create a Texture2D.
 	D3D12_RESOURCE_DESC textureDesc = {};
-	textureDesc.MipLevels = 1;
+	textureDesc.MipLevels = noofMips;
 	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	textureDesc.Width = m_width;
 	textureDesc.Height = m_height;
-	textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	textureDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	textureDesc.DepthOrArraySize = 1;
 	textureDesc.SampleDesc.Count = 1;
 	textureDesc.SampleDesc.Quality = 0;
@@ -92,19 +106,68 @@ void Texture::CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* c
 	DescriptorHeapManager* descriptorManager = Graphics::Context.m_descriptorManager;
 	m_srvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	//D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	//srvHeapDesc.NumDescriptors = 1;
-	//srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	//srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	//ThrowIfFailed(device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
-
 	// Describe and create a SRV for the texture.
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = textureDesc.Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.MipLevels = noofMips;
 	device->CreateShaderResourceView(m_texture.Get(), &srvDesc, m_srvHandle.GetCPUHandle());
+
+	if (noofMips > 1)
+	{
+		GPUDescriptorHeap* gpuDescriptorHeap = descriptorManager->GetGPUHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		ID3D12DescriptorHeap* ppHeaps[] = { gpuDescriptorHeap->GetHeap() };
+
+		commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+		for (UINT16 i = 0; i < noofMips - 1; i++)
+		{
+			uint32_t srcWidth = m_width >> i;
+			uint32_t srcHeight = m_height >> i;
+			uint32_t dstWidth = srcWidth >> 1;
+			uint32_t dstHeight = srcHeight >> 1;
+
+			//create an srv for the previous texture mip
+			DescriptorHandle srvHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			srvDesc.Texture2D.MipLevels = 1;
+			srvDesc.Texture2D.MostDetailedMip = i;
+
+			device->CreateShaderResourceView(m_texture.Get(), &srvDesc, srvHandle.GetCPUHandle());
+
+			// create a uav for the current texture mip.
+			DescriptorHandle uavHandle = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+			uavDesc.Format = textureDesc.Format;
+			uavDesc.Texture2D.MipSlice = i+1;
+			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+			device->CreateUnorderedAccessView(m_texture.Get(), nullptr, &uavDesc, uavHandle.GetCPUHandle());
+
+			commandList->SetPipelineState(Graphics::Context.m_downsamplePSO.GetPipelineStateObject());
+			commandList->SetComputeRootSignature(Graphics::Context.m_downsampleRS.GetSignature());
+
+			DescriptorHandle srvHandleGPU = gpuDescriptorHeap->GetHandleBlock(1);
+			gpuDescriptorHeap->AddToHandle(srvHandleGPU, srvHandle);
+
+			DescriptorHandle uavHandleGPU = gpuDescriptorHeap->GetHandleBlock(1);
+			gpuDescriptorHeap->AddToHandle(uavHandleGPU, uavHandle);
+
+			float dims[] = { dstWidth , dstHeight };
+			commandList->SetComputeRoot32BitConstants(0, 2, dims, 0);
+			commandList->SetComputeRootDescriptorTable(1, srvHandleGPU.GetGPUHandle());
+			commandList->SetComputeRootDescriptorTable(2, uavHandleGPU.GetGPUHandle());
+
+			const uint32_t threadGroupSizeX = dstWidth / 8 + 1;
+			const uint32_t threadGroupSizeY = dstHeight / 8 + 1;
+
+			commandList->Dispatch(threadGroupSizeX, threadGroupSizeY, 1);
+		}
+	
+	}
 }
 
 Texture::~Texture()

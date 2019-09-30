@@ -1,5 +1,16 @@
 #include "LightingCommon.h"
 
+
+cbuffer LightingConstantBuffer : register(b0)
+{
+	float4x4	InvViewProjection;
+	float4		LightDirection;
+	float4		CameraPos;
+	float4		RTSize;
+	float2		Jitter;
+	float2		pad;
+};
+
 struct VSInput
 {
 	float3 position : POSITION;
@@ -23,18 +34,12 @@ PSInput VSMain(VSInput input)
 	PSInput result;
 
 	result.position = float4(input.position.xyz, 1);
+//	result.position.xy += Jitter.xy * RTSize.zw;
 	result.uv = input.uv;
 
 	return result;
 }
 
-cbuffer LightingConstantBuffer : register(b0)
-{
-	float4x4	InvViewProjection;
-	float4		LightDirection;
-	float4		CameraPos;
-	float4		RTSize;
-};
 
 Texture2D<float4> albedoBuffer : register(t0);
 Texture2D<float4> normalBuffer : register(t1);
@@ -43,6 +48,13 @@ Texture2D<float> shadowBuffer : register(t3);
 
 PSOutput PSMain(PSInput input)
 {
+	PSOutput output = (PSOutput)0;
+	//int2 screenPos = input.uv * RTSize.xy;
+
+	//output.diffuse.rgb = (screenPos.x % 2 == screenPos.y % 2) ? float3(1, 0, 0) : float3(0, 1, 0);
+
+	//return output;
+
 	float gaussian[5][5] = 
 	{ 
 		{ 1,  4,  7,  4, 1 },
@@ -52,7 +64,6 @@ PSOutput PSMain(PSInput input)
 		{ 1,  4,  7,  4, 1 },
 	};
 
-	PSOutput output = (PSOutput)0;
 	float depth = depthBuffer[input.position.xy].x;
 
 	if (depth < 1)
@@ -89,7 +100,7 @@ PSOutput PSMain(PSInput input)
 		shadow /= 273.0;
 		//shadow /= (2 * w + 1) * (2 * w + 1);
 
-		shadow =  shadowBuffer[input.position.xy ].x;
+		shadow =  shadowBuffer[input.position.xy].x;
 
 		//if (input.position.x >= 1280/2)
 		 //	shadow = shadowBuffer[input.position.xy].x;
