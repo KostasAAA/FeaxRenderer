@@ -85,6 +85,8 @@ struct Material
 	int			NormalID;
 	float		Roughness;
 	float		Metalness;
+    float2	    UVScale;
+    float2      NormalScale;
 };
 
 Texture2D<float4>	mainBuffer: register(t0);

@@ -467,7 +467,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_gbufferRS.Reset(2, 1);
 		m_gbufferRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 2, D3D12_SHADER_VISIBILITY_ALL);
-		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 7, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 8, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS.Finalise(m_device.Get(), L"GPrepassRS", rootSignatureFlags);
 
 		//Create Pipeline State Object
@@ -1125,6 +1125,12 @@ void FeaxRenderer::OnUpdate()
 				ImGui::RadioButton("Halton 32", &TAAMode, 4);
 				ImGui::RadioButton("Hammersley 16", &TAAMode, 5);
 			}
+            if (ImGui::CollapsingHeader("Velocity dilation mode"))
+            {
+                ImGui::RadioButton("Standard", &DilationMode, 0);
+                ImGui::RadioButton("Nearest Depth", &DilationMode, 1);
+                ImGui::RadioButton("Largest Velocity", &DilationMode, 2);
+            }
 			if (ImGui::CollapsingHeader("Clamp mode"))
 			{
 				ImGui::RadioButton("No Clamp", &TAAClamp, 0);
@@ -1132,12 +1138,7 @@ void FeaxRenderer::OnUpdate()
 				ImGui::RadioButton("RGB Clip", &TAAClamp, 2);
 				ImGui::RadioButton("Variance Clip", &TAAClamp, 3);
 			}
-			if (ImGui::CollapsingHeader("Velocity dilation mode"))
-			{
-				ImGui::RadioButton("Standard", &DilationMode, 0);
-				ImGui::RadioButton("Nearest Depth", &DilationMode, 1);
-				ImGui::RadioButton("Largest Velocity", &DilationMode, 2);
-			}
+
 		}
 		if (ImGui::CollapsingHeader("Image Zoom"))
 		{
@@ -1155,12 +1156,12 @@ void FeaxRenderer::OnUpdate()
 
 	static float rot = 0;
 
-	static float distance = 1;
+	static float distance = 1.5f;
 	static float rotY = 0;
 	static float rotX = 0;
 
-	static float lightRotY = 0;
-	static float lightRotX = 0;
+	static float lightRotY = 0.9f;
+	static float lightRotX = -0.8f;
 
 	static bool ToggleBlur = false;
 

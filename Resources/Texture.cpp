@@ -165,6 +165,9 @@ void Texture::CreateResources(ID3D12Device* device, ID3D12GraphicsCommandList* c
 			const uint32_t threadGroupSizeY = dstHeight / 8 + 1;
 
 			commandList->Dispatch(threadGroupSizeX, threadGroupSizeY, 1);
+
+            commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(m_texture.Get()));
+
 		}
 	
 	}

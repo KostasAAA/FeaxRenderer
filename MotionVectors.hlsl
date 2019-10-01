@@ -17,7 +17,7 @@ RWTexture2D<float2> Output : register(u0);
 [numthreads(THREADX, THREADY, 1)]
 void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, uint GI : SV_GroupIndex)
 {
-	float2 uv = (DTid.xy + 0.5) / RTSize.zw;
+	float2 uv = (DTid.xy + 0.5) * RTSize.zw;
 
 	float depth = DepthBuffer[DTid.xy].r;
 
@@ -34,5 +34,5 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	float2 motionVector = (uv - uvPrev - JitterOffset) ;
 
-	Output[DTid.xy].xy = motionVector;
+	Output[DTid.xy].xy =  motionVector;
 }
