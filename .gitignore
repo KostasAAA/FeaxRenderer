@@ -5,3 +5,5 @@ FeaxRenderer.iobj
 *.pdb
 *.user
 *.ilk
+FeaxRenderer.exe
+FeaxRendererD.exe
