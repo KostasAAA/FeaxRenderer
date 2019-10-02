@@ -24,7 +24,7 @@ FeaxRenderer::FeaxRenderer(UINT width, UINT height, std::wstring name) :
 	m_scissorRect(0, 0, static_cast<LONG>(width), static_cast<LONG>(height)),
     m_frameIndex(0),
 	m_SSRDebug(false),
-	m_useTAA(true)
+	m_useTAA(false)
 {
 }
 
@@ -279,6 +279,7 @@ void FeaxRenderer::LoadMeshes()
 
 		m_materials.push_back(material);
 
+#if 0
 		//add trees
 		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\Tree 02\\Tree.obj"));
 		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.0f, 7.0f, 0.0f));
@@ -305,6 +306,7 @@ void FeaxRenderer::LoadMeshes()
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
 		m_materials.push_back(material);
+#endif
 
 		//add a floor
 		model = new Model(Mesh::CreatePlane(m_device.Get()));
@@ -746,17 +748,66 @@ void FeaxRenderer::CreateRenderpassResources()
 
 		compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
 
-		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\HybridSSR.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
-
-		if (errorBlob)
 		{
-			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-			errorBlob->Release();
+			ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\HybridSSR.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
+
+			if (errorBlob)
+			{
+				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+				errorBlob->Release();
+			}
 		}
 
-		m_ssrPSO.SetRootSignature(m_ssrRS);
-		m_ssrPSO.SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
-		m_ssrPSO.Finalize(m_device.Get());
+		m_ssrPSO[SSRMode::Off].SetRootSignature(m_ssrRS);
+		m_ssrPSO[SSRMode::Off].SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		m_ssrPSO[SSRMode::Off].Finalize(m_device.Get());
+		{
+			D3D_SHADER_MACRO shaderMacros[] = { "ENABLE_SSR", "1", NULL, NULL };
+
+			ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\HybridSSR.hlsl").c_str(), shaderMacros, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
+
+			if (errorBlob)
+			{
+				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+				errorBlob->Release();
+			}
+		}
+
+		m_ssrPSO[SSRMode::SSR].SetRootSignature(m_ssrRS);
+		m_ssrPSO[SSRMode::SSR].SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		m_ssrPSO[SSRMode::SSR].Finalize(m_device.Get());
+		
+		{
+			D3D_SHADER_MACRO shaderMacros[] = { "ENABLE_RTR", "1", NULL, NULL };
+
+			ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\HybridSSR.hlsl").c_str(), shaderMacros, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
+
+			if (errorBlob)
+			{
+				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+				errorBlob->Release();
+			}
+		}
+
+		m_ssrPSO[SSRMode::RTR].SetRootSignature(m_ssrRS);
+		m_ssrPSO[SSRMode::RTR].SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		m_ssrPSO[SSRMode::RTR].Finalize(m_device.Get());
+
+		{
+			D3D_SHADER_MACRO shaderMacros[] = { "ENABLE_SSR", "1","ENABLE_RTR", "1", NULL, NULL };
+
+			ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\HybridSSR.hlsl").c_str(), shaderMacros, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
+
+			if (errorBlob)
+			{
+				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+				errorBlob->Release();
+			}
+		}
+
+		m_ssrPSO[SSRMode::Both].SetRootSignature(m_ssrRS);
+		m_ssrPSO[SSRMode::Both].SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		m_ssrPSO[SSRMode::Both].Finalize(m_device.Get());
 
 		//create constant buffer for shadowpass
 		Buffer::Description cbDesc;
@@ -1062,7 +1113,7 @@ void FeaxRenderer::OnUpdate()
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	static int ReflectionsMode = 1;
+	static int ReflectionsMode = 0;
 	static float StrideZCutoff = 0;
 	static float ZThickness = 0.05f;
 	static float SSRScale = 1.0f;
@@ -1086,10 +1137,10 @@ void FeaxRenderer::OnUpdate()
 
 		if (ImGui::CollapsingHeader("Reflections"))
 		{
-			ImGui::RadioButton("No reflections", &ReflectionsMode, 1);
-			ImGui::RadioButton("SSR only", &ReflectionsMode, 2);
-			ImGui::RadioButton("Raytracing only", &ReflectionsMode, 3);
-			ImGui::RadioButton("SSR + Raytracing", &ReflectionsMode, 4);
+			ImGui::RadioButton("No reflections", &ReflectionsMode, 0);
+			ImGui::RadioButton("SSR only", &ReflectionsMode, 1);
+			ImGui::RadioButton("Raytracing only", &ReflectionsMode, 2);
+			ImGui::RadioButton("SSR + Raytracing", &ReflectionsMode, 3);
 			ImGui::Checkbox("Show reflections only", &m_SSRDebug);
 			//ImGui::SliderFloat("StrideZCutoff", &StrideZCutoff, 0, 10);
 			//ImGui::SliderFloat("ZThickness", &ZThickness, 0, 10);
@@ -1356,6 +1407,8 @@ void FeaxRenderer::OnUpdate()
 									// the camera.
 
 	ssrData.ReflectionsMode = (float)ReflectionsMode;
+
+	m_ssrPSOID = (SSRMode::Enum)ReflectionsMode;
 
 	memcpy(m_ssrCB->Map(), &ssrData, sizeof(ssrData));
 
@@ -1690,7 +1743,7 @@ void FeaxRenderer::PopulateCommandList()
 			m_mainRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			ResourceBarrierEnd(Graphics::Context);
 
-			m_commandList->SetPipelineState(m_ssrPSO.GetPipelineStateObject());
+			m_commandList->SetPipelineState(m_ssrPSO[m_ssrPSOID].GetPipelineStateObject());
 			m_commandList->SetComputeRootSignature(m_ssrRS.GetSignature());
 
 			Buffer *bvh = scene->GetBVHBuffer();

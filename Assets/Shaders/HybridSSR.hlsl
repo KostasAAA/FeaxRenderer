@@ -365,11 +365,10 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	float3 mainRT = mainBuffer[screenPos].xyz;
 
-	if (ReflectionsMode == 1)
-	{
-		outputRT[screenPos] = float4(mainRT, 1);
-		return;
-	}
+#if !defined(ENABLE_SSR) && !defined(ENABLE_RTR)
+	outputRT[screenPos] = float4(mainRT, 1);
+	return;
+#endif	
 
 	float depth = depthBuffer[screenPos].r;
 
@@ -382,58 +381,65 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 	float4 albedo = albedoBuffer[screenPos];
 	float4 normal = normalBuffer[screenPos].xyzw;
 
-	//convert normal to view space to find the correct reflection vector
-	float3 normalVS = mul((float3x3)View, normal.xyz);
-
 	//get world position from depth
 	float2 uv = (screenPos.xy + 0.5) * RTSize.zw;
 	float4 clipPos = float4(2 * uv - 1, depth, 1);
 	clipPos.y = -clipPos.y;
 
-	float4 viewPos = mul(InvProjection, clipPos);
-	viewPos.xyz /= viewPos.w;
-
-	float3 rayOrigin = viewPos.xyz + normalVS * 0.01;
-	float3 toPosition = normalize(rayOrigin.xyz);
-
-	/*
-	* Since position is reconstructed in view space, just normalize it to get the
-	* vector from the eye to the position and then reflect that around the normal to
-	* get the ray direction to trace.
-	*/
-	float3 rayDirection = reflect(toPosition, normalVS);
-
-	// out parameters
-	float2 hitPixel = float2(0.0f, 0.0f);
-	float3 hitPoint = float3(0.0f, 0.0f, 0.0f);
-
-	float jitter = Stride > 1.0f ? float(int(screenPos.x + screenPos.y) & 1) * 0.5f : 0.0f;
-
-	// perform ray tracing - true if hit found, false otherwise
-	bool intersection = traceScreenSpaceRay(rayOrigin, rayDirection, jitter, hitPixel, hitPoint);
-
-	depth = depthBuffer.Load(int3(hitPixel, 0)).r;
-
-	// move hit pixel from pixel position to UVs;
-	if (hitPixel.x > RTSize.x || hitPixel.x < 0.0f || hitPixel.y > RTSize.y || hitPixel.y < 0.0f)
-	{
-		intersection = false;
-	}
-
+	float3 toPosition = 0;
+	float3 rayDirection = 0;
 	float4 result = 0;
+	bool intersection = false;
 
-	float4 worldPos = mul(InvViewProjection, clipPos);
-	worldPos.xyz /= worldPos.w;
-
-	toPosition = normalize(worldPos.xyz - CameraPos.xyz);
-	rayDirection = reflect(toPosition, normal.xyz);
-
-	if ( intersection && !((int)ReflectionsMode & 1) )
+#if ENABLE_SSR
 	{
-		result = mainBuffer[hitPixel];
+		//convert normal to view space to find the correct reflection vector
+		float3 normalVS = mul((float3x3)View, normal.xyz);
+
+		float4 viewPos = mul(InvProjection, clipPos);
+		viewPos.xyz /= viewPos.w;
+
+		float3 rayOrigin = viewPos.xyz + normalVS * 0.01;
+		toPosition = normalize(rayOrigin.xyz);
+
+		/*
+		* Since position is reconstructed in view space, just normalize it to get the
+		* vector from the eye to the position and then reflect that around the normal to
+		* get the ray direction to trace.
+		*/
+		rayDirection = reflect(toPosition, normalVS);
+
+		// out parameters
+		float2 hitPixel = float2(0.0f, 0.0f);
+		float3 hitPoint = float3(0.0f, 0.0f, 0.0f);
+
+		float jitter = Stride > 1.0f ? float(int(screenPos.x + screenPos.y) & 1) * 0.5f : 0.0f;
+
+		// perform ray tracing - true if hit found, false otherwise
+		intersection = traceScreenSpaceRay(rayOrigin, rayDirection, jitter, hitPixel, hitPoint);
+
+		// move hit pixel from pixel position to UVs;
+		if (hitPixel.x > RTSize.x || hitPixel.x < 0.0f || hitPixel.y > RTSize.y || hitPixel.y < 0.0f)
+		{
+			intersection = false;
+		}
+
+		if (intersection)
+			result = mainBuffer[hitPixel];
 	}
-	else if ( ReflectionsMode >= 3.0 ) //raytrace to find reflection
+#endif
+
+#if ENABLE_RTR
+#if ENABLE_SSR
+	if (!intersection)
+#endif
 	{
+		float4 worldPos = mul(InvViewProjection, clipPos);
+		worldPos.xyz /= worldPos.w;
+
+		toPosition = normalize(worldPos.xyz - CameraPos.xyz);
+		rayDirection = reflect(toPosition, normal.xyz);
+
 		//offset to avoid self interesection
 		worldPos.xyz += 0.05 * normal.xyz;
 
@@ -472,7 +478,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 			//calculate specular for hit point. This assumes view dir is hitpoint to world position (-rayDirection)
 			float3 specular = LightingGGX(n.xyz, -rayDirection, LightDirection.xyz, material.Roughness, specularColour);
 
-			worldPos.xyz += hitdata.Distance * rayDirection + 0.1 * n; 
+			worldPos.xyz += hitdata.Distance * rayDirection + 0.1 * n;
 
 			bool collision = TraceRay(worldPos.xyz, LightDirection.xyz, true, hitdata);
 
@@ -480,9 +486,10 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 			float lightIntensity = LightDirection.w * (1 - collision);
 
-			result =  float4( albedo.rgb * (lightIntensity * NdotL + 0.3) + lightIntensity * specular, 1);
+			result = float4(albedo.rgb * (lightIntensity * NdotL + 0.3) + lightIntensity * specular, 1);
 		}
 	}
+#endif
 
 	//calculate fresnel for the world point/pixel we are shading
 	float3 L = rayDirection.xyz;

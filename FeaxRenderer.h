@@ -175,11 +175,24 @@ private:
 	RootSignature	m_mainRS;
 
 	//SSR pass
+	struct SSRMode
+	{
+		enum Enum
+		{
+			Off,
+			SSR,
+			RTR,
+			Both,
+			Noof
+		};		
+	};
+
 	Rendertarget*	m_ssrRT;
-	ComputePSO		m_ssrPSO;
+	ComputePSO		m_ssrPSO[SSRMode::Noof];
 	RootSignature	m_ssrRS;
 	Buffer*			m_ssrCB;
 	SSRCBData		m_ssrCBData;
+	SSRMode::Enum   m_ssrPSOID;
 
 	//Motion vector pass
 	Rendertarget*	m_velocityRT;
