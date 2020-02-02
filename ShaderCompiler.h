@@ -2,10 +2,16 @@
 
 namespace ShaderCompiler
 {
-	extern dxc::DxcDllSupport	DxcDllHelper;
 	extern IDxcCompiler*		Compiler;
 	extern IDxcLibrary*			Library;
 
-	void Compile(LPCWSTR filename, LPCWSTR entry, IDxcBlob** blob);
+	struct DxilMinimalHeader
+	{
+		UINT32 four_cc;
+		UINT32 hash_digest[4];
+	};
 
+	void Initialise();
+	void Compile(LPCWSTR filename, LPCWSTR entry, LPCWSTR profile, IDxcBlob** blob);
+	void Destroy();
 }

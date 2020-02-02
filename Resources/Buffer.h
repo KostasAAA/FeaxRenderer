@@ -13,6 +13,7 @@ public:
 			CBV = 1 << 1,
 			UAV = 1 << 2,
 			Structured = 1 << 3,
+			Raw = 1 << 4,
 		};
 	};
 

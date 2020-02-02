@@ -13,6 +13,8 @@
 #endif
 
 //#define DXR_ENABLED
+//#define RT_USE_BYTEADDRESS_BUFFER
+#define RT_USE_STRUCTURED_BUFFER
 
 #include <windows.h>
 
@@ -29,6 +31,8 @@
 #include <vector>
 
 #include "DXSample.h"
+
+#include <dxc/dxcapi.h>
 
 #include "Maths.h"
 #include "Resources\Graphics.h"

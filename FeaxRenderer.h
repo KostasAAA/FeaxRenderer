@@ -18,7 +18,9 @@
 #include "Renderables\Model.h"
 #include "Resources\DescriptorHeap.h"
 #include "RendertargetManager.h"
+#include "LightManager.h"
 #include "TextureManager.h"
+#include "DebugRenderer.h"
 
 using namespace DirectX;
 
@@ -39,6 +41,8 @@ class RootSignature;
 class DescriptorHandle;
 class Scene;
 class RendertargetManager;
+class Depthbuffer;
+class DebugRenderer;
 
 class FeaxRenderer : public DXSample
 {
@@ -74,20 +78,26 @@ public:
     virtual void OnDestroy();
 
 private:
+	static const int sm_MaxNoofShadowCasters = 2;
 
 	__declspec(align(16)) struct GPrepassCBData
 	{
 		XMMATRIX ViewProjection;
+		XMFLOAT4 CameraPos;
 		float MipBias;
 	};
 
 	__declspec(align(16)) struct LightPassCBData
 	{
 		XMMATRIX InvViewProjection;
-		XMFLOAT4 LightDirection;
 		XMFLOAT4 CameraPos;
 		XMFLOAT4 RTSize;
 		XMFLOAT2 Jitter;
+	};
+
+	__declspec(align(16)) struct ShadowAtlasPassCBData
+	{
+		XMMATRIX	ViewProjection[sm_MaxNoofShadowCasters * 6];
 	};
 
 	__declspec(align(16)) struct ShadowPassCBData
@@ -112,6 +122,10 @@ private:
 	{
 		XMFLOAT4	RTSize;
 		XMFLOAT4	Config;
+		float		Exposure;
+		float		Aperture;
+		float		ShutterSpeed;
+		float		ISO;
 	};
 
 	__declspec(align(16)) struct SSRCBData
@@ -141,13 +155,58 @@ private:
 		float		ReflectionsMode;
 	};
 
+	static const int sm_noofRTGISamples = 100;
+
+	__declspec(align(16)) struct RTGICBData
+	{
+		XMMATRIX	InvViewProjection;
+		XMMATRIX	ViewProjection;
+		XMFLOAT4	RTSize;
+		int			FrameIndex;
+		float		pad[3];
+		XMFLOAT4	SampleVectors[sm_noofRTGISamples];
+	};
+
+	__declspec(align(16)) struct DirectionalLightData
+	{
+		XMFLOAT4	Direction;
+		XMFLOAT4	Colour;
+		float		Intensity;
+	};
+
+	__declspec(align(16)) struct PointLightData
+	{
+		XMFLOAT4	Position;
+		XMFLOAT4	Colour;
+		XMFLOAT4	ShadowmapRange;
+		float		Intensity;
+		float		Attenuation;
+		float		Radius;
+	};
+
+	__declspec(align(16)) struct LightsCBData
+	{
+		uint	NoofDirectional;
+		uint	NoofPoint;
+		uint	NoofSpot;
+		uint	pad;
+		DirectionalLightData DirectionalLight;
+		PointLightData PointLights[100];
+	};
+
 	ComPtr<IDXGISwapChain3> m_swapChain;
 	ComPtr<ID3D12Device> m_device;
-	ComPtr<ID3D12Resource> m_depthStencil;
+	Depthbuffer* m_depthStencil;
 
 	RendertargetManager	m_rendertargetManager;
 	TextureManager		m_textureManager;
-	
+	LightManager		m_lightManager;
+	DebugRenderer		m_debugRenderer;
+
+	static const int	sm_MaxNoofTextures = 32;
+
+	DescriptorHandle	m_nullDescriptor;
+
 	//GBuffer pass
 	Rendertarget*	m_gbufferRT[GBuffer::Noof];
 	GraphicsPSO		m_gbufferPSO;
@@ -163,11 +222,28 @@ private:
 	ShadowPassCBData m_shadowsCBData;
 	Texture*		m_blueNoiseTexture;
 
+	//local lights shadow pass
+	Depthbuffer*	m_shadowAtlasRT;
+	GraphicsPSO		m_shadowAtlasPSO;
+	RootSignature	m_shadowAtlasRS;
+	Buffer*			m_shadowAtlasCB;
+	XMVECTOR		m_pointLightDir[6];
+	XMVECTOR		m_pointLightUp[6];
+
+	static const UINT sm_shadowAtlasTileWidth = 256;
+	static const UINT sm_shadowAtlasTileHeight = 256;
+
+	static const UINT sm_shadowAtlasWidth = 6 * sm_shadowAtlasTileWidth;
+	static const UINT sm_shadowAtlasHeight = sm_MaxNoofShadowCasters * sm_shadowAtlasTileHeight;
+
+	Texture* m_shadowAtlasDebug;
+
 	//Lighting pass
 	Rendertarget*	m_lightingRT[Lighting::Noof];
 	GraphicsPSO		m_lightingPSO;
 	RootSignature	m_lightingRS;
 	Buffer*			m_lightingCB;
+	Buffer*			m_lightsCB;
 
 	//composite pass
 	Rendertarget*	m_mainRT;
@@ -193,6 +269,13 @@ private:
 	Buffer*			m_ssrCB;
 	SSRCBData		m_ssrCBData;
 	SSRMode::Enum   m_ssrPSOID;
+
+	//Raytraced GI pass
+	Rendertarget*	m_rtgiRT;
+	Rendertarget*	m_rtgiHistoryRT;
+	ComputePSO		m_rtgiPSO;
+	RootSignature	m_rtgiRS;
+	Buffer*			m_rtgiCB;
 
 	//Motion vector pass
 	Rendertarget*	m_velocityRT;

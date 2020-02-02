@@ -15,11 +15,14 @@ public:
 
 	DescriptorHandle& GetSRV() { return m_srvHandle; }
 
+	XMFLOAT4& GetAverageColour() { return m_averageColour; };
+
 private:
 	int m_width;
 	int m_height;
 	int m_noofChannels;
 	unsigned char* m_data;
+	XMFLOAT4 m_averageColour;
 
 	ComPtr<ID3D12Resource> m_textureUploadHeap;
 	ComPtr<ID3D12Resource> m_texture;

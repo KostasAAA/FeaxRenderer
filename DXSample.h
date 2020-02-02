@@ -49,7 +49,7 @@ protected:
     // Adapter info.
     bool m_useWarpDevice;
 
-private:
+protected:
     // Root assets path.
     std::wstring m_assetsPath;
 

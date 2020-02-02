@@ -100,14 +100,18 @@ void Buffer::CreateResources()
 		{
 			srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 			srvDesc.Buffer.NumElements = m_description.m_noofElements;
+			srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			if (m_description.m_descriptorType & Buffer::DescriptorType::Structured)
 			{
 				srvDesc.Buffer.StructureByteStride = m_description.m_elementSize;
 			}
-			srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			else if (m_description.m_descriptorType & Buffer::DescriptorType::Raw)
+			{
+				srvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+				srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+			}
 			device->CreateShaderResourceView(m_buffer.Get(), &srvDesc, m_srvHandle.GetCPUHandle());
 		}
-
 	}
 
 	if (m_description.m_descriptorType & DescriptorType::CBV)

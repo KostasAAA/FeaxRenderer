@@ -28,6 +28,10 @@ PSInput VSMain(VSInput input)
 Texture2D<float4> albedoBuffer : register(t0);
 Texture2D<float4> lightDiffuseBuffer : register(t1);
 Texture2D<float4> lightSpecularBuffer : register(t2);
+Texture2D<float4> giBuffer : register(t3);
+
+SamplerState SamplerLinear : register(s0);
+
 
 PSOutput PSMain(PSInput input)
 {
@@ -37,14 +41,20 @@ PSOutput PSMain(PSInput input)
 	float3 diffuse = lightDiffuseBuffer[input.position.xy].rgb;
 	float3 specular = lightSpecularBuffer[input.position.xy].rgb;
 
+	float3 gi = giBuffer.SampleLevel(SamplerLinear, input.uv.xy, 0).rgb;
+
 	albedo.rgb = pow(albedo.rgb, 2.2);
 
-	float metalness = albedo.w;
-	albedo.rgb *= 1 - metalness;
+	float emissive = uint(albedo.w * 255) & 2;
+	float metalness = uint(albedo.w * 255) & 1;
 
-	output.colour.rgb = albedo * diffuse + specular;
+	output.colour.rgb = albedo.rgb;
 
-	//output.colour.rgb = diffuse;
+	if (emissive == 0)
+	{
+		albedo.rgb *= 1 - metalness;
+		output.colour.rgb =  albedo* (diffuse + gi) + specular;
+	}
 
     return output;
 }

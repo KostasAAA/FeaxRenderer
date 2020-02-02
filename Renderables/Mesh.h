@@ -9,6 +9,7 @@ public:
 	{
 		XMFLOAT3 position;
 		XMFLOAT3 normal;
+		XMFLOAT3 tangent;
 		XMFLOAT2 texcoord;
 	};
 

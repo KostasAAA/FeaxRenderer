@@ -135,7 +135,9 @@ DescriptorHeapManager::DescriptorHeapManager()
 {
 	ZeroMemory(m_CPUDescriptorHeaps, sizeof(m_CPUDescriptorHeaps));
 
-	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 512);
+	static const int MaxNoofSRVDescriptors = 4*4096;
+
+	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MaxNoofSRVDescriptors);
 	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_RTV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 128);
 	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_DSV] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 128);
 	m_CPUDescriptorHeaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = new CPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 16);
@@ -143,7 +145,7 @@ DescriptorHeapManager::DescriptorHeapManager()
 	for (UINT i = 0; i < Graphics::FrameCount; i++)
 	{
 		ZeroMemory(m_GPUDescriptorHeaps[i], sizeof(m_GPUDescriptorHeaps[i]));
-		m_GPUDescriptorHeaps[i][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = new GPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 256);
+		m_GPUDescriptorHeaps[i][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = new GPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MaxNoofSRVDescriptors);
 		m_GPUDescriptorHeaps[i][D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = new GPUDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 16);
 	}
 }

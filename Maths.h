@@ -7,6 +7,8 @@ typedef UINT uint;
 typedef UINT64 uint64;
 typedef unsigned char uint8;
 
+#define PI 3.14159265359f
+
 #define Align(value, alignment) (((value + alignment - 1) / alignment) * alignment)
 
 inline XMVECTOR Float3ToVector4(XMFLOAT3& floatVec, float w)
@@ -110,3 +112,12 @@ struct AABB
 
 };
  
+inline float Random01()
+{
+	return rand() / (float)RAND_MAX;
+}
+
+inline float Lerp(float a, float b, float t)
+{
+	return a * (1.0 - t) + b * t;
+}

@@ -2,6 +2,7 @@
 
 #include "..\Resources\RootSignature.h"
 #include "..\Resources\Buffer.h"
+#include "Mesh.h"
 
 class Mesh;
 class Buffer;
@@ -12,12 +13,15 @@ struct Material
 {
 	int			m_albedoID;
 	int			m_normalID;
+	int			m_furShells;
 	float		m_roughness;
 	float		m_metalness;
+	XMFLOAT4	m_albedoColour;
 	XMFLOAT2	m_uvScale;
 	XMFLOAT2	m_normalScale;
+	float		m_emissive;
 
-	Material() : m_albedoID(-1), m_normalID(-1), m_roughness(0.5f), m_metalness(0), m_uvScale(XMFLOAT2(0, 0)), m_normalScale(XMFLOAT2(1, 1)) {}
+	Material() : m_albedoID(-1), m_normalID(-1), m_furShells(-1), m_roughness(0.5f), m_metalness(0), m_emissive(0), m_albedoColour(XMFLOAT4(1, 1, 1, 1)), m_uvScale(XMFLOAT2(0, 0)), m_normalScale(XMFLOAT2(1, 1)) {}
 };
 
 class Model
@@ -74,8 +78,11 @@ public:
 		float		NormalID;
 		float		Roughness;
 		float		Metalness;
+		XMFLOAT4	Colour;
 		XMFLOAT2	UVscale;
 		XMFLOAT2	Normalscale;
+		float		Emissive;
+		float		FurShellsID;
 	};
 
 	ModelInstance(Model* model, Material& material, int materialID, XMMATRIX& objectToWorld) : 
@@ -104,6 +111,8 @@ public:
 
 	Buffer* GetCB() { return m_modelInstanceCB; }
 
+	void SetMatrix(XMMATRIX& matrix) { m_objectToWorld = matrix; }
+
 	void Update() 
 	{ 
 		XMVECTOR minBounds = Float3ToVector4(m_model->GetAABB().MinBounds);
@@ -120,6 +129,9 @@ public:
 		cbData.Metalness = m_material.m_metalness;
 		cbData.UVscale = m_material.m_uvScale;
 		cbData.Normalscale = m_material.m_normalScale;
+		cbData.Emissive = m_material.m_emissive;
+		cbData.Colour = m_material.m_albedoColour;
+		cbData.FurShellsID = m_material.m_furShells;
 
 		memcpy(m_modelInstanceCB->Map(), &cbData, sizeof(cbData));
 	}

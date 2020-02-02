@@ -40,6 +40,8 @@ public:
 
 	void TransitionTo(GraphicsContext& context, D3D12_RESOURCE_STATES stateAfter);
 
+	int GetWidth() { return m_desc.m_width; }
+	int GetHeight() { return m_desc.m_height; }
 private:
 	Description m_desc;
 

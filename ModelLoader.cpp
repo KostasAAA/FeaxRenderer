@@ -20,7 +20,7 @@ Model* ModelLoader::Load(ID3D12Device* device, std::string& filename)
 
 	Assimp::Importer importer;
 
-	const aiScene* pScene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_ConvertToLeftHanded);
+	const aiScene* pScene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_ConvertToLeftHanded | aiProcess_CalcTangentSpace);
 
 	if (pScene == NULL)
 		return nullptr;
@@ -55,6 +55,13 @@ Mesh* ModelLoader::processMesh(ID3D12Device* device, aiMesh * mesh, const aiScen
 		vertex.normal.x = mesh->mNormals[i].x;
 		vertex.normal.y = mesh->mNormals[i].y;
 		vertex.normal.z = mesh->mNormals[i].z;
+
+		if (mesh->HasTangentsAndBitangents())
+		{
+			vertex.tangent.x = mesh->mTangents[i].x;
+			vertex.tangent.y = mesh->mTangents[i].y;
+			vertex.tangent.z = mesh->mTangents[i].z;
+		}
 
 		if (mesh->mTextureCoords[0])
 		{

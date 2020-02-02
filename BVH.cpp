@@ -365,7 +365,7 @@ namespace BVH
 		std::vector<BVHAABB> triBBoxes;
 		triBBoxes.reserve(noofBoxes);
 
-		std::vector<BVHAABBCentre>	bboxCentres;
+		std::vector<BVHAABBCentre> bboxCentres;
 		bboxCentres.reserve(noofBoxes);
 
 		SurfaceCost = std::vector<SurfaceCostElement>(noofBoxes);
@@ -392,10 +392,18 @@ namespace BVH
 		Buffer* bvhBuffer = nullptr;
 		{
 			Buffer::Description desc;
-			desc.m_noofElements = dataOffset / sizeof(XMFLOAT4);
+#if defined(RT_USE_STRUCTURED_BUFFER)
+			desc.m_elementSize = sizeof(XMFLOAT4);
+			desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
+#elif defined(RT_USE_BYTEADDRESS_BUFFER)
+			desc.m_elementSize = sizeof(float);
+			desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Raw;
+#else
 			desc.m_elementSize = sizeof(XMFLOAT4);
 			desc.m_format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 			desc.m_descriptorType = Buffer::DescriptorType::SRV;
+#endif
+			desc.m_noofElements = dataOffset / desc.m_elementSize;
 
 			bvhBuffer = new Buffer(desc, L"BVHBuffer", bvhTreeNodesGPU);
 		}
@@ -405,9 +413,14 @@ namespace BVH
 			Buffer::Description desc;
 			desc.m_noofElements = m_normalsList.size();
 			desc.m_elementSize = sizeof(XMFLOAT3);
+#if defined(RT_USE_BYTEADDRESS_BUFFER)
+			desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
+//			desc.m_format = DXGI_FORMAT_R32G32B32_FLOAT;
+			//desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Raw;
+#else
 			desc.m_format = DXGI_FORMAT_R32G32B32_FLOAT;
 			desc.m_descriptorType = Buffer::DescriptorType::SRV;
-
+#endif
 			normalsBuffer = new Buffer(desc, L"BVHBuffer_normals", (unsigned char*)m_normalsList.data());
 		}
 
@@ -416,8 +429,12 @@ namespace BVH
 			Buffer::Description desc;
 			desc.m_noofElements = m_uvList.size();
 			desc.m_elementSize = sizeof(XMFLOAT2);
+#if defined(RT_USE_STRUCTURED_BUFFER)
+			desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
+#else
 			desc.m_format = DXGI_FORMAT_R32G32_FLOAT;
 			desc.m_descriptorType = Buffer::DescriptorType::SRV;
+#endif
 
 			uvBuffer = new Buffer(desc, L"BVHBuffer_uvs", (unsigned char*)m_uvList.data());
 		}

@@ -83,19 +83,22 @@ struct Material
 {
 	int			AlbedoID;
 	int			NormalID;
+	int			FurShells;
 	float		Roughness;
 	float		Metalness;
+	float4		Albedo;
     float2	    UVScale;
     float2      NormalScale;
+	float		Emissive;
 };
 
 Texture2D<float4>	mainBuffer: register(t0);
 Texture2D<float>	depthBuffer : register(t1);
 Texture2D<float4>	normalBuffer: register(t2);
 Texture2D<float4>	albedoBuffer: register(t3);
-Buffer<float4>		BVHTree : register(t4);
-Buffer<float4>		BVHNormals : register(t5);
-Buffer<float2>		BVHUVs : register(t6);
+BVHTreeBuffer		BVHTree : register(t4);
+BVHNormalsBuffer	BVHNormals : register(t5);
+BVHUVsBuffer		BVHUVs : register(t6);
 StructuredBuffer<Material> Materials :  register(t7);
 Texture2D<float4>	Diffuse[] : register(t8);
 
@@ -276,84 +279,6 @@ bool traceScreenSpaceRay(
 	return intersectsDepthBuffer(sceneZMax, rayZMin, rayZMax);
 }
 
-struct HitData
-{
-	int TriangleIndex;
-	float2 BarycentricCoords;
-	int MaterialID;
-	float Distance;
-};
-
-bool TraceRay(float3 worldPos, float3 rayDir, bool firstHitOnly, out HitData hitData)
-{
-	float t = 0;
-	float2 bCoord = 0;
-	float minDistance = 1000000;
-
-	int dataOffset = 0;
-	bool done = false;
-
-	bool collision = false;
-
-	int offsetToNextNode = 1;
-
-	float3 rayDirInv = rcp(rayDir);
-
-	int noofCollisions = 0;
-
-	[loop]
-	while (offsetToNextNode != 0)
-	{
-		float4 element0 = BVHTree[dataOffset++].xyzw;
-
-		offsetToNextNode = int(element0.w);
-
-		collision = false;
-
-		if (offsetToNextNode < 0)
-		{
-			float4 element1 = BVHTree[dataOffset++].xyzw;
-
-			//try collision against this node's bounding box	
-			float3 bboxMin = element0.xyz;
-			float3 bboxMax = element1.xyz;
-
-			//intermediate node check for intersection with bounding box
-			collision = RayIntersectsBox(worldPos.xyz, rayDirInv, bboxMin.xyz, bboxMax.xyz);
-
-			//if there is collision, go to the next node (left) or else skip over the whole branch
-			if (!collision)
-				dataOffset -= offsetToNextNode;
-		}
-		else if (offsetToNextNode > 0)
-		{
-			float4 vertex0 = element0;
-			float4 vertex1MinusVertex0 = BVHTree[dataOffset++].xyzw;
-			float4 vertex2MinusVertex0 = BVHTree[dataOffset++].xyzw;
-
-			//check for intersection with triangle
-			collision = RayTriangleIntersect(worldPos.xyz, rayDir, vertex0.xyz, vertex1MinusVertex0.xyz, vertex2MinusVertex0.xyz, t, bCoord);
-
-			if (collision && t < minDistance)
-			{
-				hitData.TriangleIndex = (int)vertex1MinusVertex0.w;
-				hitData.MaterialID = (int)vertex2MinusVertex0.w;
-				hitData.BarycentricCoords = bCoord;
-				hitData.Distance = t;
-
-				minDistance = t;
-
-				noofCollisions++;
-
-				if(firstHitOnly || noofCollisions > 10)
-					return true;
-			}
-		}
-	};
-
-	return noofCollisions > 0;
-}
-
 #define THREADX 8
 #define THREADY 8
 #define THREADGROUPSIZE (THREADX*THREADY)
@@ -445,7 +370,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 		HitData hitdata;
 
-		if (TraceRay(worldPos.xyz, rayDirection, false, hitdata))
+		if (TraceRay(BVHTree, worldPos.xyz, rayDirection, false, hitdata))
 		{
 			//interpolate normal
 			float3 n0 = BVHNormals[hitdata.TriangleIndex * 3].xyz;
@@ -476,11 +401,11 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 			albedo.rgb = lerp(albedo.rgb, 0, material.Metalness);
 
 			//calculate specular for hit point. This assumes view dir is hitpoint to world position (-rayDirection)
-			float3 specular = LightingGGX(n.xyz, -rayDirection, LightDirection.xyz, material.Roughness, specularColour);
+			float3 specular = SpecularBRDF(n.xyz, -rayDirection, LightDirection.xyz, material.Roughness, specularColour);
 
 			worldPos.xyz += hitdata.Distance * rayDirection + 0.1 * n;
 
-			bool collision = TraceRay(worldPos.xyz, LightDirection.xyz, true, hitdata);
+			bool collision = TraceRay(BVHTree, worldPos.xyz, LightDirection.xyz, true, hitdata);
 
 			float NdotL = saturate(dot(n, LightDirection.xyz));
 
