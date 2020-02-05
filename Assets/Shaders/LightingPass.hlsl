@@ -117,7 +117,7 @@ PSOutput PSMain(PSInput input)
 		shadow /= 273.0;
 		//shadow /= (2 * w + 1) * (2 * w + 1);
 
-		shadow = 1;// shadowBuffer[input.position.xy].x;
+		shadow =   shadowBuffer[input.position.xy].x;
 
 		//if (input.position.x >= 1280/2)
 		 //	shadow = shadowBuffer[input.position.xy].x;
@@ -126,12 +126,12 @@ PSOutput PSMain(PSInput input)
 	//		shadow = shadowBuffer[input.position.xy].x;
 
 		float3 lightDir = DirectionalLight.Direction.xyz;
-		float3 lightColour = DirectionalLight.Colour.xyz;
+		float3 lightColour = saturate(DirectionalLight.Colour.xyz);
+		float lightIntensity = DirectionalLight.Intensity.x;
 		float NdotL = saturate(dot(normal.xyz, lightDir));
 
-		output.diffuse.rgb = ( shadow * DiffuseBRDF() * NdotL) * lightColour + 0.0;
-		output.specular.rgb = ( shadow * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) ) * lightColour;
-
+		output.diffuse.rgb = (lightIntensity * shadow * DiffuseBRDF() * NdotL) * lightColour + 0.01 * lightIntensity;
+		output.specular.rgb = (lightIntensity * shadow * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) ) * lightColour;
 
 		[loop]
 		for (uint i = 0; i < NoofPoint; i++)

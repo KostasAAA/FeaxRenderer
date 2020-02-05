@@ -1,3 +1,5 @@
+#include "Common.hlsl"
+
 struct VSInput
 {
 	float3 position : POSITION;
@@ -43,7 +45,7 @@ PSOutput PSMain(PSInput input)
 
 	float3 gi = giBuffer.SampleLevel(SamplerLinear, input.uv.xy, 0).rgb;
 
-	albedo.rgb = pow(albedo.rgb, 2.2);
+	albedo.rgb = accurateSRGBToLinear(albedo.rgb);
 
 	float emissive = uint(albedo.w * 255) & 2;
 	float metalness = uint(albedo.w * 255) & 1;

@@ -171,6 +171,7 @@
     <ClCompile Include="ImGUI\imgui_impl_win32.cpp" />
     <ClCompile Include="ImGUI\imgui_widgets.cpp" />
     <ClCompile Include="LightManager.cpp" />
+    <ClCompile Include="Maths.cpp" />
     <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="Renderables\Material.cpp" />
     <ClCompile Include="Renderables\Mesh.cpp" />

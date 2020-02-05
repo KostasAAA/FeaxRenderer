@@ -1,3 +1,5 @@
+#include "Common.hlsl"
+
 struct VSInput
 {
 	float3 position : POSITION;
@@ -71,9 +73,10 @@ float4 PSMain(PSInput input) : SV_Target
 	float ev100 = GetExposureSettings(Aperture, ShutterSpeed, ISO);
 	float exposure = GetExposure(ev100);
 
-	result *= Exposure;
+	result *= exposure;
+//	result *= Exposure;
 
-	output.rgb = pow (abs(result), 1/2.2);
+	output.rgb = accurateLinearToSRGB(abs(result.rgb));
 
 	return output;
 }

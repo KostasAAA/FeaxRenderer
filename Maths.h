@@ -81,6 +81,10 @@ inline float XMFloat3MaxElement(const XMFLOAT3 &a)
 	return max(a.x, max(a.y, a.z));
 }
 
+inline float XMVector3MaxElement(const XMVECTOR& a)
+{
+	return max(a.m128_f32[0], max(a.m128_f32[1], a.m128_f32[2]));
+}
 
 struct AABB
 {
@@ -121,3 +125,8 @@ inline float Lerp(float a, float b, float t)
 {
 	return a * (1.0 - t) + b * t;
 }
+
+//based on ImGUI's version
+template<typename T> inline T Clamp(T v, T mn, T mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
+
+XMVECTOR ConvertKelvinToLinearRGB(float K);

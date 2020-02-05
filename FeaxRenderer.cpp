@@ -821,9 +821,16 @@ void FeaxRenderer::CreateRenderpassResources()
 #else
 		UINT compileFlags = 0;
 #endif
+		ID3DBlob* errorBlob = nullptr;
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, &errorBlob));
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
 
 		m_mainPSO = m_lightingPSO;
 
@@ -1148,8 +1155,8 @@ void FeaxRenderer::CreateRenderpassResources()
 		UINT compileFlags = 0;
 #endif
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
 
 		m_tonemappingPSO = m_mainPSO;
 
@@ -1222,6 +1229,7 @@ void FeaxRenderer::LoadAssets()
 	directionalLight.m_direction = XMVectorSet(1, 1, 1, 0);
 	directionalLight.m_direction = XMVector3Normalize(directionalLight.m_direction);
 	directionalLight.m_colour = XMVectorSet(0, 0, 0, 0);
+	directionalLight.m_intensity = 75000; // in lux
 
 	m_lightManager.AddDirectionalLight(std::move(directionalLight));
 
@@ -1422,14 +1430,15 @@ void FeaxRenderer::OnUpdate()
 	static bool EnableManualJitter = false;
 	static float MipBias = -1.0f;
 	static int DilationMode = 0;
-	static float Aperture = 2.8f;
-	static float ISO = 800.0f;
-	static float ShutterSpeed = 1 / 60.0f;
-	static float ExposureValue = 1;
-
+	static float Aperture = 8.0f;
+	static float ISO = 100.0f;
+	static float ShutterSpeed = 1 / 100.0f;
+	static float ExposureValue = 13;
+	static float SunIntensity = 75000;
 	static bool giSamplesInitialised = false;
 
 	static bool RotateLights = false;
+	static float DirLightTemperature = 5500;
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
 	{
@@ -1447,7 +1456,10 @@ void FeaxRenderer::OnUpdate()
 
 		if (ImGui::CollapsingHeader("Camera"))
 		{
-			ImGui::SliderFloat("ExposureValue", &ExposureValue, -10, 10);
+			ImGui::SliderFloat("Sun Temperature", &DirLightTemperature, 2000, 10000);
+			ImGui::SliderFloat("Sun Intensity", &SunIntensity, 400, 150000);
+
+			ImGui::SliderFloat("ExposureValue", &ExposureValue, -10, 30);
 
 			ImGui::SliderFloat("Aperture", &Aperture, 0, 28);
 			ImGui::SliderFloat("ShutterSpeed", &ShutterSpeed, 0, 1);
@@ -1537,11 +1549,10 @@ void FeaxRenderer::OnUpdate()
 	static float rotY = 0;
 	static float rotX = 0;
 
-	static float lightRotY = 0.9f;
-	static float lightRotX = -0.8f;
+	static float lightRotY = 45.0f;
+	static float lightRotX = -90.0f;
 
 	static bool ToggleBlur = false;
-
 
 	if (IsKeyPressed('A'))
 		rotY += 0.01f;
@@ -1568,10 +1579,10 @@ void FeaxRenderer::OnUpdate()
 		lightRotY -= 0.1f;
 
 	if (IsKeyPressed(VK_UP))
-		lightRotX -= 0.1f;
+		lightRotX += 2.0f;
 
 	if (IsKeyPressed(VK_DOWN))
-		lightRotX += 0.1f;
+		lightRotX -= 2.0f;
 
 	XMMATRIX rotationCamera = XMMatrixRotationRollPitchYaw(rotX, rotY, 0);
 
@@ -1668,11 +1679,18 @@ void FeaxRenderer::OnUpdate()
 	XMVECTOR lightDir = XMVectorSet(0, 0, 1, 0);
 	lightDir = XMVector3Normalize(lightDir);
 
-	XMMATRIX rotationLight = XMMatrixRotationRollPitchYaw(lightRotX, lightRotY, 0);
+	XMMATRIX rotationLight = XMMatrixRotationRollPitchYaw(XMConvertToRadians(lightRotX), XMConvertToRadians(lightRotY), 0);
 	lightDir = XMVector4Transform(lightDir, rotationLight);
 
 	//light intensity in w
-	lightDir.m128_f32[3] = 2;
+	lightDir.m128_f32[3] = 0;
+
+	XMVECTOR factor = XMVector3Dot(lightDir, XMVectorSet(0, 1, 0, 0));
+	float f = factor.m128_f32[0];
+
+	f = Clamp(f, 0.0f, 1.0f);
+
+	//DirLightTemperature = Lerp(2000.0f, 6500.0f, f);
 
 	XMMATRIX viewProjection = view * projection;
 
@@ -1730,9 +1748,9 @@ void FeaxRenderer::OnUpdate()
 
 	Light& directionalLight = m_lightManager.GetDirectionalLights()[0];
 	lightData.NoofDirectional = 1;
-	lightData.DirectionalLight.Direction = ToFloat4(directionalLight.m_direction);
-	lightData.DirectionalLight.Colour = ToFloat4(directionalLight.m_colour);
-	lightData.DirectionalLight.Intensity = directionalLight.m_intensity;
+	lightData.DirectionalLight.Direction = ToFloat4(lightDir);
+	lightData.DirectionalLight.Colour = ToFloat4(ConvertKelvinToLinearRGB(DirLightTemperature));// ToFloat4(directionalLight.m_colour);
+	lightData.DirectionalLight.Intensity = SunIntensity;// Lerp(400, 75000, f);//directionalLight.m_intensity;
 
 	lightData.NoofPoint = pointLights.size();
 
@@ -2157,7 +2175,7 @@ void FeaxRenderer::PopulateCommandList()
 		}
 
 		//raytraced shadows pass
-		if (false)
+		if (true)
 		{
 			Scene* scene = Graphics::Context.m_scene;
 
