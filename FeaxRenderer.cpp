@@ -10,11 +10,15 @@
 #include "Resources\DescriptorHeap.h"
 #include "Resources\Texture.h"
 #include "Resources\Rendertarget.h"
+#include "Resources\Depthbuffer.h"
 #include "Resources\Buffer.h"
 #include "Renderables\Model.h"
 #include "BVH.h"
-
+#include "DebugRenderer.h"
 #include "FeaxRenderer.h"
+#include "ShaderCompiler.h"
+
+#define ENABLE_RTGI 0
 
 using namespace Graphics;
 
@@ -35,9 +39,29 @@ FeaxRenderer::~FeaxRenderer()
 void FeaxRenderer::OnInit()
 {
 	Graphics::InitializeCommonState();
+	ShaderCompiler::Initialise();
 
     LoadPipeline();
     LoadAssets();
+
+	m_pointLightDir[0] = XMVectorSet(1, 0, 0, 0);
+	m_pointLightUp[0] = XMVectorSet(0, 1, 0, 0);
+
+	m_pointLightDir[1] = XMVectorSet(0, 0, 1, 0);
+	m_pointLightUp[1] = XMVectorSet(0, 1, 0, 0);
+
+	m_pointLightDir[2] = XMVectorSet(-1, 0, 0, 0);
+	m_pointLightUp[2] = XMVectorSet(0, 1, 0, 0);
+
+	m_pointLightDir[3] = XMVectorSet(0, 0, -1, 0);
+	m_pointLightUp[3] = XMVectorSet(0, 1, 0, 0);
+
+	m_pointLightDir[4] = XMVectorSet(0, 1, 0, 0);
+	m_pointLightUp[4] = XMVectorSet(1, 0, 0, 0);
+
+	m_pointLightDir[5] = XMVectorSet(0, -1, 0, 0);
+	m_pointLightUp[5] = XMVectorSet(-1, 0, 0, 0);
+
 }
 
 // Load the rendering pipeline dependencies.
@@ -66,6 +90,15 @@ void FeaxRenderer::LoadPipeline()
 	ComPtr<IDXGIAdapter1> hardwareAdapter;
     GetHardwareAdapter(factory.Get(), &hardwareAdapter);
 
+	static const UUID D3D12ExperimentalShaderModels = { /* 76f5573e-f13a-40f5-b297-81ce9e18933f */
+		0x76f5573e,
+		0xf13a,
+		0x40f5,
+		{ 0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f }
+	};
+
+	//ThrowIfFailed( D3D12EnableExperimentalFeatures(1, &D3D12ExperimentalShaderModels, nullptr, nullptr) );
+
 #if defined DXR_ENABLED
     ThrowIfFailed(D3D12CreateDevice(hardwareAdapter, D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device5), (void**)&m_device));
 #else
@@ -78,9 +111,9 @@ void FeaxRenderer::LoadPipeline()
 
     if (d3dInfoQueue)
     {
-      /*  d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+		//d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
         d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
-        d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);*/
+        //d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
 
         //block some warnings
         D3D12_MESSAGE_ID blockedIds[] = 
@@ -155,6 +188,8 @@ void FeaxRenderer::LoadPipeline()
     ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
 
 	SetupImGUI();
+
+	m_debugRenderer.Initialise(m_assetsPath, swapChainDesc.Format);
 }
 
 void FeaxRenderer::LoadMeshes()
@@ -177,12 +212,19 @@ void FeaxRenderer::LoadMeshes()
 		material.m_roughness = 0.5f;
 		material.m_metalness = 0.0f;
 		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
-
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		int materialID = m_materials.size();
+
+		m_materials.push_back(material);
 
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
-		m_materials.push_back(material);
+		//add fur shell mesh
+		//material.m_uvScale = XMFLOAT2(90.0f,90.0f);
+		//material.m_furShells = m_textureManager.Load("fur.png");
+		//materialID = m_materials.size();
+		//m_materials.push_back(material);
+		//scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
 		//add teapot
 		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\teapot.obj"));
@@ -191,19 +233,22 @@ void FeaxRenderer::LoadMeshes()
 		material.m_albedoID = m_textureManager.Load("spnza_bricks_a_diff.jpg");
 		material.m_roughness = 0.9f;
 		material.m_metalness = 0.0f;
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
+		material.m_furShells = -1;
+		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
 
 		materialID = m_materials.size();
-
-		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
 		m_materials.push_back(material);
 
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+	
 		//add another instance of the teapot
 		objectToWorld = XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslationFromVector(XMVectorSet(3.0f, 0.5f, 0.0f, 0.0f));
 
 		material.m_albedoID = m_textureManager.Load("RedBrick\\Tiles37_col.jpg");
 		material.m_roughness = 0.4f;
 		material.m_metalness = 0.0f;
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 
 		materialID = m_materials.size();
 
@@ -226,12 +271,24 @@ void FeaxRenderer::LoadMeshes()
 
 		m_materials.push_back(material);
 
+		//add fur shell mesh
+		material.m_uvScale = XMFLOAT2(10.0f, 10.0f);
+		material.m_furShells = m_textureManager.Load("fur.png");
+		materialID = m_materials.size();
+		m_materials.push_back(material);
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+
 		//add another instance of the sphere
 		objectToWorld = XMMatrixScaling(1, 1,1) * XMMatrixTranslationFromVector(XMVectorSet(3.0f, 1.5f, 6.0f, 0.0f));
 
 		material.m_albedoID = m_textureManager.Load("RedBrick\\Tiles37_col.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
+		material.m_furShells = -1;
+		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
+
 
 		materialID = m_materials.size();
 
@@ -247,7 +304,7 @@ void FeaxRenderer::LoadMeshes()
 		material.m_albedoID = m_textureManager.Load("Brick\\Bricks23_col.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
-
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
@@ -265,7 +322,7 @@ void FeaxRenderer::LoadMeshes()
 		material.m_albedoID = m_textureManager.Load("sand_texture.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
-
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
 		for (int i = 0; i < 5; i++)
@@ -309,15 +366,15 @@ void FeaxRenderer::LoadMeshes()
 #endif
 
 		//add a floor
-		model = new Model(Mesh::CreatePlane(m_device.Get()));
+		model = new Model(Mesh::CreatePlane(m_device.Get())); 
 
-		material.m_albedoID = m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
-		material.m_normalID = m_textureManager.Load("BlackTile\\Tiles52_nrm.jpg");
+		material.m_albedoID = m_textureManager.Load("Marble\\Marble01_col.jpg");  // m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
+		material.m_normalID = m_textureManager.Load("Marble\\Marble01_nrm.jpg");  //  m_textureManager.Load("BlackTile\\Tiles52_nrm.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
 		material.m_uvScale = XMFLOAT2(3.0f, 3.0f);
 		material.m_normalScale = XMFLOAT2(0.05f, 0.05f);
-
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
 		objectToWorld = XMMatrixScaling(5, 1, 5);
@@ -325,15 +382,14 @@ void FeaxRenderer::LoadMeshes()
 
 		m_materials.push_back(material);
 
+		////add fur shell mesh
+		//material.m_uvScale = XMFLOAT2(20.0f, 20.0f);
+		//material.m_furShells = m_textureManager.Load("fur.png");
+		//materialID = m_materials.size();
+		//m_materials.push_back(material);
+		//scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
 		BVH::CreateBVHBuffer(Graphics::Context.m_scene);
-
-		Buffer::Description desc;
-		desc.m_elementSize = sizeof(Material);
-		desc.m_noofElements = m_materials.size();
-		desc.m_state = D3D12_RESOURCE_STATE_COPY_DEST;
-		desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
-
-		m_materialBuffer = new Buffer(desc, L"Materials Buffer", (unsigned char*)m_materials.data());
 	}
 
 	//create full triangle resources
@@ -389,7 +445,16 @@ void FeaxRenderer::LoadMeshes()
 		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_fullscreenVertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER));
 	}
 
+	// create a null descriptor for unbound textures
+	DescriptorHeapManager* descriptorManager = Graphics::Context.m_descriptorManager;
+	m_nullDescriptor = descriptorManager->CreateCPUHandle(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	m_device->CreateShaderResourceView(nullptr, &srvDesc, m_nullDescriptor.GetCPUHandle());
 }
 
 
@@ -398,47 +463,13 @@ void FeaxRenderer::CreateRenderpassResources()
 
 	// Create the depth buffer and views.
 	{
-		// Describe and create a depth stencil view (DSV) descriptor heap.
-		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-		dsvHeapDesc.NumDescriptors = 1;
-		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
+		Depthbuffer::Description desc = {};
 
-		D3D12_DEPTH_STENCIL_VIEW_DESC depthStencilDesc = {};
-		depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
-		depthStencilDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-		depthStencilDesc.Flags = D3D12_DSV_FLAG_NONE;
+		desc.m_width = m_width;
+		desc.m_height = m_height;
+		desc.m_format = DXGI_FORMAT_D32_FLOAT;
 
-		D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
-		depthOptimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;
-		depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
-		depthOptimizedClearValue.DepthStencil.Stencil = 0;
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-			D3D12_HEAP_FLAG_NONE,
-			&CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32_TYPELESS, m_width, m_height, 1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			&depthOptimizedClearValue,
-			IID_PPV_ARGS(&m_depthStencil)
-		));
-
-		m_device->CreateDepthStencilView(m_depthStencil.Get(), &depthStencilDesc, m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-		D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-		srvHeapDesc.NumDescriptors = 1;
-		srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MipLevels = 1;
-
-		m_device->CreateShaderResourceView(m_depthStencil.Get(), &srvDesc, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+		m_depthStencil = new Depthbuffer(desc);
 	}
 
 	//create resources for g-buffer pass 
@@ -469,7 +500,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_gbufferRS.Reset(2, 1);
 		m_gbufferRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 2, D3D12_SHADER_VISIBILITY_ALL);
-		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 8, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_gbufferRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, sm_MaxNoofTextures, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_gbufferRS.Finalise(m_device.Get(), L"GPrepassRS", rootSignatureFlags);
 
 		//Create Pipeline State Object
@@ -485,24 +516,27 @@ void FeaxRenderer::CreateRenderpassResources()
 
 		ID3DBlob* errorBlob = nullptr;
 
+	//	ShaderCompiler::Compile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), L"VSMain", L"vs_6_0", &vertexShader);
 		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_1", compileFlags, 0, &vertexShader, nullptr));
 
 		compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
 
+		//ShaderCompiler::Compile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), L"PSMain", L"ps_6_0", &pixelShader);
 		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_1", compileFlags, 0, &pixelShader, &errorBlob));
 
-		if (errorBlob)
-		{
-			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-			errorBlob->Release();
-		}
+		//if (errorBlob)
+		//{
+		//	OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		//	errorBlob->Release();
+		//}
 
 		// Define the vertex input layout.
 		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
 		{
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 		};
 
 		// Describe and create the graphics pipeline state object (PSO).
@@ -528,6 +562,83 @@ void FeaxRenderer::CreateRenderpassResources()
 		cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
 
 		m_gbufferCB = new Buffer(cbDesc, L"GBuffer CB");
+	}
+
+
+	//create resources for local lights shadows pass
+	{
+		//rendertargets
+		Depthbuffer::Description desc = {};
+
+		desc.m_width = sm_shadowAtlasWidth;
+		desc.m_height = sm_shadowAtlasHeight;
+		desc.m_format = DXGI_FORMAT_D16_UNORM;
+
+		m_shadowAtlasRT = new Depthbuffer(desc);
+
+		// root signature
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+		m_shadowAtlasRS.Reset(2, 0);
+		m_shadowAtlasRS[0].InitAsConstants(0, 1, D3D12_SHADER_VISIBILITY_VERTEX);
+		m_shadowAtlasRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 2, D3D12_SHADER_VISIBILITY_VERTEX);
+		m_shadowAtlasRS.Finalise(m_device.Get(), L"ShadowAtlasRS", rootSignatureFlags);
+
+		//Create Pipeline State Object
+		ComPtr<ID3DBlob> vertexShader = nullptr;
+		ComPtr<ID3DBlob> pixelShader = nullptr;
+
+#if defined(_DEBUG)
+		// Enable better shader debugging with the graphics debugging tools.
+		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+		UINT compileFlags = 0;
+#endif
+
+		ID3DBlob* errorBlob = nullptr;
+
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\ShadowAtlasPass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_1", compileFlags, 0, &vertexShader, &errorBlob));
+
+		//compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
+
+		//ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_1", compileFlags, 0, &pixelShader, &errorBlob));
+
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		// Define the vertex input layout.
+		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		};
+
+		m_shadowAtlasPSO.SetRootSignature(m_shadowAtlasRS);
+		m_shadowAtlasPSO.SetRasterizerState(RasterizerDefault);
+		m_shadowAtlasPSO.SetBlendState(BlendDisable);
+		m_shadowAtlasPSO.SetDepthStencilState(DepthStateReadWrite);
+		m_shadowAtlasPSO.SetInputLayout(_countof(inputElementDescs), inputElementDescs);
+		m_shadowAtlasPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+		m_shadowAtlasPSO.SetRenderTargetFormats(0, nullptr, desc.m_format);
+		m_shadowAtlasPSO.SetVertexShader(vertexShader->GetBufferPointer(), vertexShader->GetBufferSize());
+		m_shadowAtlasPSO.SetPixelShader(nullptr, 0);
+		m_shadowAtlasPSO.Finalize(m_device.Get());
+
+		//create constant buffer for pass
+		Buffer::Description cbDesc;
+		cbDesc.m_elementSize = sizeof(ShadowAtlasPassCBData);
+		cbDesc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+		cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
+
+		m_shadowAtlasCB = new Buffer(cbDesc, L"Shadow Atlas CB");
 	}
 
 	//create resources for raytraced shadows pass
@@ -564,7 +675,15 @@ void FeaxRenderer::CreateRenderpassResources()
 
 #define D3D_COMPILE_STANDARD_FILE_INCLUDE ((ID3DInclude*)(UINT_PTR)1)
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\RaytracedShadowsPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_0", compileFlags, 0, &computeShader, nullptr));
+		ID3DBlob* errorBlob = nullptr;
+
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\RaytracedShadowsPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_0", compileFlags, 0, &computeShader, &errorBlob));
+
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
 
 		m_shadowsPSO.SetRootSignature(m_shadowsRS);
 		m_shadowsPSO.SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
@@ -600,9 +719,10 @@ void FeaxRenderer::CreateRenderpassResources()
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-		m_lightingRS.Reset(2, 0);
-		m_lightingRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
-		m_lightingRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_lightingRS.Reset(2, 1);
+		m_lightingRS.InitStaticSampler(0, SamplerShadowsDesc, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_lightingRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 3, D3D12_SHADER_VISIBILITY_ALL);
+		m_lightingRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 6, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_lightingRS.Finalise(m_device.Get(), L"Lighting pass RS", rootSignatureFlags);
 
 		//create pipeline state object
@@ -624,14 +744,14 @@ void FeaxRenderer::CreateRenderpassResources()
 #endif
 		ID3DBlob* errorBlob = nullptr;
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\LightingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, &errorBlob));
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\LightingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, &errorBlob));
 		if (errorBlob)
 		{
 			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 			errorBlob->Release();
 		}
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\LightingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, &errorBlob));
+		 (D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\LightingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, &errorBlob));
 		if (errorBlob)
 		{
 			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
@@ -660,6 +780,9 @@ void FeaxRenderer::CreateRenderpassResources()
 		cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
 
 		m_lightingCB = new Buffer(cbDesc, L"Lighting CB");
+
+		cbDesc.m_elementSize = sizeof(LightsCBData);
+		m_lightsCB = new Buffer(cbDesc, L"Lights CB");
 	}
 
 	//create resources for composite pass
@@ -682,8 +805,9 @@ void FeaxRenderer::CreateRenderpassResources()
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-		m_mainRS.Reset(1, 0);
-		m_mainRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 3, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_mainRS.Reset(1, 1);
+		m_mainRS.InitStaticSampler(0, SamplerLinearClampDesc, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_mainRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 4, D3D12_SHADER_VISIBILITY_PIXEL);
 		m_mainRS.Finalise(m_device.Get(), L"Composite pass RS", rootSignatureFlags);
 
 		//create pipeline state object
@@ -697,9 +821,16 @@ void FeaxRenderer::CreateRenderpassResources()
 #else
 		UINT compileFlags = 0;
 #endif
+		ID3DBlob* errorBlob = nullptr;
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, &errorBlob));
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\CompositePass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
 
 		m_mainPSO = m_lightingPSO;
 
@@ -709,6 +840,70 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_mainPSO.SetPixelShader(pixelShader->GetBufferPointer(), pixelShader->GetBufferSize());
 		m_mainPSO.Finalize(m_device.Get());
 	}
+
+#if ENABLE_RTGI
+	//create resources for raytraced GI pass
+	{
+		Rendertarget::Description desc = {};
+		desc.m_width = m_width / 4;
+		desc.m_height = m_height / 4;
+		desc.m_format = DXGI_FORMAT_R11G11B10_FLOAT;
+		desc.m_flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		desc.m_clearColour = { 0,0,0,0 };
+
+		//create rendertargets
+		m_rtgiRT = m_rendertargetManager.Get(desc);
+		m_rtgiHistoryRT = m_rendertargetManager.Get(desc);
+
+		//create root signature
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+		m_rtgiRS.Reset(3, 1);
+		m_rtgiRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
+		m_rtgiRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 2, D3D12_SHADER_VISIBILITY_ALL);
+		m_rtgiRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 8 + sm_MaxNoofTextures, D3D12_SHADER_VISIBILITY_ALL);
+		m_rtgiRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
+		m_rtgiRS.Finalise(m_device.Get(), L"RTGI RS", rootSignatureFlags);
+
+		//create pipeline state object
+		ComPtr<ID3DBlob> computeShader;
+
+#if defined(_DEBUG)
+		// Enable better shader debugging with the graphics debugging tools.
+		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+		UINT compileFlags = D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+
+#define D3D_COMPILE_STANDARD_FILE_INCLUDE ((ID3DInclude*)(UINT_PTR)1)
+
+		ID3DBlob* errorBlob = nullptr;
+
+		compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
+
+		{
+			(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\RTGI.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "CSMain", "cs_5_1", compileFlags, 0, &computeShader, &errorBlob));
+
+			if (errorBlob)
+			{
+				OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+				errorBlob->Release();
+			}
+		}
+
+		m_rtgiPSO.SetRootSignature(m_rtgiRS);
+		m_rtgiPSO.SetComputeShader(computeShader->GetBufferPointer(), computeShader->GetBufferSize());
+		m_rtgiPSO.Finalize(m_device.Get());
+
+		//create constant buffer for shadowpass
+		Buffer::Description cbDesc;
+		cbDesc.m_elementSize = sizeof(RTGICBData);
+		cbDesc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+		cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
+
+		m_rtgiCB = new Buffer(cbDesc, L"GI RT CB");
+	}
+#endif
 
 	//create resources for screen space reflections
 	{
@@ -728,7 +923,7 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_ssrRS.Reset(3, 1);
 		m_ssrRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
-		m_ssrRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 16, D3D12_SHADER_VISIBILITY_ALL);
+		m_ssrRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, 8 + sm_MaxNoofTextures, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS[2].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0, 1, D3D12_SHADER_VISIBILITY_ALL);
 		m_ssrRS.Finalise(m_device.Get(), L"SSR RS", rootSignatureFlags);
 
@@ -960,8 +1155,8 @@ void FeaxRenderer::CreateRenderpassResources()
 		UINT compileFlags = 0;
 #endif
 
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
+		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\TonemappingPass.hlsl").c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
 
 		m_tonemappingPSO = m_mainPSO;
 
@@ -1026,30 +1221,138 @@ void FeaxRenderer::LoadAssets()
 	LoadMeshes();
 
 	m_blueNoiseTexture = new Texture("Assets\\Textures\\LDR_RGBA_1.png", m_device.Get(), m_commandList.Get());
+	m_shadowAtlasDebug = new Texture("Assets\\Textures\\shadowAtlasDebug.png", m_device.Get(), m_commandList.Get());
+
+	//add a few lights
+	Light directionalLight = {};
+	directionalLight.m_castShadows = true;
+	directionalLight.m_direction = XMVectorSet(1, 1, 1, 0);
+	directionalLight.m_direction = XMVector3Normalize(directionalLight.m_direction);
+	directionalLight.m_colour = XMVectorSet(0, 0, 0, 0);
+	directionalLight.m_intensity = 75000; // in lux
+
+	m_lightManager.AddDirectionalLight(std::move(directionalLight));
+
+	//add point lights
+	float lightAreaH1 = -2;
+	float lightAreaH2 = 2;
+	float lightAreaV1 = 0;
+	float lightAreaV2 = 5;
+#if 0
+	for (int i = 0; i < 0; i++)
+	{
+		Light pointLight = {};
+
+		pointLight.m_castShadows = false;
+		pointLight.m_position = XMVectorSet(
+			Lerp(lightAreaH1, lightAreaH2, Random01()),
+			Lerp(lightAreaV1, lightAreaV2, Random01()),
+			Lerp(lightAreaH1, lightAreaH2, Random01()),
+			1
+		);
+
+		pointLight.m_colour = XMVectorSet(  Random01(),   Random01(),   Random01(), 1);
+		pointLight.m_radius = 1.0f + Random01();
+		pointLight.m_rotationSpeed = (Random01() > 0.5 ? 1 : -1) *( 0.05f * Random01() + 0.05f);
+
+		m_lightManager.AddPointLight(std::move(pointLight));
+	}
+#endif
+
+	if(true)
+	{
+		Light pointLight = {};
+
+		pointLight.m_castShadows = false;
+		pointLight.m_position = XMVectorSet(0, 4, 2.5, 0);
+		pointLight.m_colour = XMVectorSet(255, 180, 107, 255) / 255.0f;
+		pointLight.m_intensity = 600.0f;
+		pointLight.m_radius = 6.5f;
+		pointLight.m_rotationSpeed = 0.015f;
+
+		m_lightManager.AddPointLight(std::move(pointLight));
+	}
+
+	{
+		Light pointLight = {};
+
+		pointLight.m_castShadows = false;
+		pointLight.m_position = XMVectorSet(2.5, 4,0, 0);
+		pointLight.m_colour = XMVectorSet(255, 180, 107, 255) / 255.0f;
+		pointLight.m_intensity = 600.0f;
+		pointLight.m_radius = 6.5f;
+		pointLight.m_rotationSpeed = -0.025f;
+
+		m_lightManager.AddPointLight(std::move(pointLight));
+	}
+
+	{
+		Light pointLight = {};
+
+		pointLight.m_castShadows = false;
+		pointLight.m_position = XMVectorSet(2.5f, 4, 2.5f, 0);
+		pointLight.m_colour = XMVectorSet(255, 180, 107, 255) / 255.0f;
+		pointLight.m_intensity = 600.0f;
+		pointLight.m_radius = 6.5f;
+		pointLight.m_rotationSpeed = 0.03f;
+
+		m_lightManager.AddPointLight(std::move(pointLight));
+	}
+
+	auto& pointLights = m_lightManager.GetPointLights();
+	ModelLoader modelLoader;
+
+	//add sphere to represent lights in the scene
+	Model* model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\sphere.obj"));
+	Material material;
+
+	for (Light& light : pointLights)
+	{
+		XMMATRIX objectToWorld = XMMatrixScaling(0.05f, 0.05f, 0.05f) * XMMatrixTranslationFromVector(light.m_position);
+
+		material.m_emissive = 1.0f;
+		material.m_albedoColour = ToFloat4(light.m_colour);
+
+		int materialID = m_materials.size();
+
+		light.m_lightMesh = new ModelInstance(model, material, materialID, objectToWorld);
+
+		Graphics::Context.m_scene->AddModelInstance(light.m_lightMesh);
+
+		m_materials.push_back(material);
+	}
+
+	//create material buffer
+	Buffer::Description desc;
+	desc.m_elementSize = sizeof(Material);
+	desc.m_noofElements = m_materials.size();
+	desc.m_state = D3D12_RESOURCE_STATE_COPY_DEST;
+	desc.m_descriptorType = Buffer::DescriptorType::SRV | Buffer::DescriptorType::Structured;
+
+	m_materialBuffer = new Buffer(desc, L"Materials Buffer", (unsigned char*)m_materials.data());
 
 	// Close the command list and execute it to begin the initial GPU setup.
 	ThrowIfFailed(m_commandList->Close());
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-    // Create synchronization objects.
-    {
-        ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-        m_fenceValue = 1;
+	// Create synchronization objects.
+	{
+		ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+		m_fenceValue = 1;
 
-        // Create an event handle to use for frame synchronization.
-        m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-        if (m_fenceEvent == nullptr)
-        {
-            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-        }
+		// Create an event handle to use for frame synchronization.
+		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		if (m_fenceEvent == nullptr)
+		{
+			ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+		}
 
 		// Wait for the command list to execute; we are reusing the same command 
 		// list in our main loop but for now, we just want to wait for setup to 
 		// complete before continuing.
 		WaitForPreviousFrame();
-    }
-
+	}
 }
 
 inline bool IsKeyPressed(int key)
@@ -1127,13 +1430,41 @@ void FeaxRenderer::OnUpdate()
 	static bool EnableManualJitter = false;
 	static float MipBias = -1.0f;
 	static int DilationMode = 0;
+	static float Aperture = 8.0f;
+	static float ISO = 100.0f;
+	static float ShutterSpeed = 1 / 100.0f;
+	static float ExposureValue = 13;
+	static float SunIntensity = 75000;
+	static bool giSamplesInitialised = false;
+
+	static bool RotateLights = false;
+	static float DirLightTemperature = 5500;
 
 	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
 	{
 		static float f = 0.0f;
 		static int counter = 0;
 
-		ImGui::Begin("Hybrid SSR");                          
+		if (ImGui::SmallButton("Toggle Sampling Mode"))
+		{
+			giSamplesInitialised = !giSamplesInitialised;
+		}
+
+		ImGui::Begin("Hybrid SSR");  
+
+		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+		if (ImGui::CollapsingHeader("Camera"))
+		{
+			ImGui::SliderFloat("Sun Temperature", &DirLightTemperature, 2000, 10000);
+			ImGui::SliderFloat("Sun Intensity", &SunIntensity, 400, 150000);
+
+			ImGui::SliderFloat("ExposureValue", &ExposureValue, -10, 30);
+
+			ImGui::SliderFloat("Aperture", &Aperture, 0, 28);
+			ImGui::SliderFloat("ShutterSpeed", &ShutterSpeed, 0, 1);
+			ImGui::SliderFloat("ISO", &ISO, 0, 1600);
+		}
 
 		if (ImGui::CollapsingHeader("Reflections"))
 		{
@@ -1198,12 +1529,19 @@ void FeaxRenderer::OnUpdate()
 			ImGui::Checkbox("Show Grid", &ZoomGrid);			
 			ImGui::SliderInt("Zoom Factor", &ZoomFactor, 1, 30);
 		}
+		if (ImGui::CollapsingHeader("Lights"))
+		{
+			ImGui::Checkbox("Rotate", &RotateLights);
+		}
 
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
 		ImGui::End();
 	}
 
+	if (RotateLights)
+	{
+		m_lightManager.Update();
+	}
 
 	static float rot = 0;
 
@@ -1211,8 +1549,8 @@ void FeaxRenderer::OnUpdate()
 	static float rotY = 0;
 	static float rotX = 0;
 
-	static float lightRotY = 0.9f;
-	static float lightRotX = -0.8f;
+	static float lightRotY = 45.0f;
+	static float lightRotX = -90.0f;
 
 	static bool ToggleBlur = false;
 
@@ -1241,16 +1579,16 @@ void FeaxRenderer::OnUpdate()
 		lightRotY -= 0.1f;
 
 	if (IsKeyPressed(VK_UP))
-		lightRotX -= 0.1f;
+		lightRotX += 2.0f;
 
 	if (IsKeyPressed(VK_DOWN))
-		lightRotX += 0.1f;
+		lightRotX -= 2.0f;
 
 	XMMATRIX rotationCamera = XMMatrixRotationRollPitchYaw(rotX, rotY, 0);
 
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMVECTOR cameraPos = XMVectorSet(6.0f, 3.5f, 6.0f, 0.0f);
-	XMVECTOR cameraLookAt = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR cameraLookAt = XMVectorSet(0.0f, 3.0f, 0.0f, 0.0f);
 
 	float fieldOfViewY = 3.141592654f / 4.0f;
 
@@ -1341,11 +1679,18 @@ void FeaxRenderer::OnUpdate()
 	XMVECTOR lightDir = XMVectorSet(0, 0, 1, 0);
 	lightDir = XMVector3Normalize(lightDir);
 
-	XMMATRIX rotationLight = XMMatrixRotationRollPitchYaw(lightRotX, lightRotY, 0);
+	XMMATRIX rotationLight = XMMatrixRotationRollPitchYaw(XMConvertToRadians(lightRotX), XMConvertToRadians(lightRotY), 0);
 	lightDir = XMVector4Transform(lightDir, rotationLight);
 
 	//light intensity in w
-	lightDir.m128_f32[3] = 2;
+	lightDir.m128_f32[3] = 0;
+
+	XMVECTOR factor = XMVector3Dot(lightDir, XMVectorSet(0, 1, 0, 0));
+	float f = factor.m128_f32[0];
+
+	f = Clamp(f, 0.0f, 1.0f);
+
+	//DirLightTemperature = Lerp(2000.0f, 6500.0f, f);
 
 	XMMATRIX viewProjection = view * projection;
 
@@ -1355,17 +1700,74 @@ void FeaxRenderer::OnUpdate()
 	GPrepassCBData gbufferPassData;
 	gbufferPassData.ViewProjection = viewProjection;
 	gbufferPassData.MipBias = m_useTAA ? MipBias : 0.0f;
+	XMStoreFloat4(&gbufferPassData.CameraPos, cameraPos);
 
 	memcpy(m_gbufferCB->Map(), &gbufferPassData, sizeof(gbufferPassData));
 
-	LightPassCBData lightPassData;
+	LightPassCBData lightPassData = {};
 	lightPassData.InvViewProjection = invViewProjection;
 	XMStoreFloat4(&lightPassData.CameraPos, cameraPos);
-	lightPassData.LightDirection = ToFloat4(lightDir);
 	lightPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
 	lightPassData.Jitter = jitter;
 
 	memcpy(m_lightingCB->Map(), &lightPassData, sizeof(lightPassData));
+
+	auto& pointLights = m_lightManager.GetPointLights();
+
+	ShadowAtlasPassCBData shadowAtlasData = {};
+
+	fieldOfViewY = 3.141592654f / 2.0f;
+
+	int index = 0;
+	int lightIndex = 0;
+	for (Light& light : pointLights)
+	{
+		if (light.m_castShadows)
+		{
+			light.m_shadowmapRange = XMVectorSet(0, lightIndex * sm_shadowAtlasTileHeight, sm_shadowAtlasTileWidth, sm_shadowAtlasTileHeight);
+			light.m_shadowmapRange = light.m_shadowmapRange / XMVectorSet(sm_shadowAtlasWidth, sm_shadowAtlasHeight, sm_shadowAtlasWidth, sm_shadowAtlasHeight);
+
+			for (int i = 0; i < 6; i++)
+			{
+				XMVECTOR forwardVec = light.m_position + m_pointLightDir[i];
+				XMMATRIX view = XMMatrixLookAtLH(light.m_position, forwardVec, m_pointLightUp[i]);
+				XMMATRIX projection = XMMatrixPerspectiveFovLH(fieldOfViewY, sm_shadowAtlasTileWidth / (float)sm_shadowAtlasTileHeight, 0.1f, 200.0f);
+
+				shadowAtlasData.ViewProjection[index] = view * projection;
+
+				index++;
+			}
+
+			lightIndex++;
+		}
+	}
+
+	memcpy(m_shadowAtlasCB->Map(), &shadowAtlasData, sizeof(shadowAtlasData));
+
+	LightsCBData lightData = {};
+
+	Light& directionalLight = m_lightManager.GetDirectionalLights()[0];
+	lightData.NoofDirectional = 1;
+	lightData.DirectionalLight.Direction = ToFloat4(lightDir);
+	lightData.DirectionalLight.Colour = ToFloat4(ConvertKelvinToLinearRGB(DirLightTemperature));// ToFloat4(directionalLight.m_colour);
+	lightData.DirectionalLight.Intensity = SunIntensity;// Lerp(400, 75000, f);//directionalLight.m_intensity;
+
+	lightData.NoofPoint = pointLights.size();
+
+	index = 0;
+	for (Light& light : pointLights)
+	{
+		lightData.PointLights[index].Position = ToFloat4(light.m_position);
+		lightData.PointLights[index].Colour = ToFloat4(light.m_colour);
+		lightData.PointLights[index].Intensity = light.m_intensity / (4 * PI); // convert Lumens to Candelas
+		lightData.PointLights[index].Radius = light.m_radius;
+		lightData.PointLights[index].Attenuation = light.m_attenuation;
+		lightData.PointLights[index].ShadowmapRange = ToFloat4(light.m_shadowmapRange);
+
+		index++;
+	}
+
+	memcpy(m_lightsCB->Map(), &lightData, sizeof(lightData));
 
 	ShadowPassCBData shadowPassData;
 	shadowPassData.ViewProjection = viewProjection;
@@ -1373,8 +1775,6 @@ void FeaxRenderer::OnUpdate()
 	XMStoreFloat4(&shadowPassData.CameraPos, cameraPos);
 	shadowPassData.LightDir = ToFloat4(lightDir);
 	shadowPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
-
-#define PI 3.14159265359f
 
 	shadowPassData.CameraPos.w = (float)((int)frameCount % 360)/ (2 * PI);
 
@@ -1436,8 +1836,89 @@ void FeaxRenderer::OnUpdate()
 	zoomData.Config.x = ZoomEnable ? 1.0f : 0.0f;
 	zoomData.Config.y = ZoomFactor;
 	zoomData.Config.z = ZoomGrid ? 1.0f : 0.0f;
-
+	zoomData.Aperture = Aperture;
+	zoomData.ShutterSpeed = ShutterSpeed;
+	zoomData.ISO = ISO;
+	zoomData.Exposure = 1.0f / (pow(2.0f, ExposureValue) * 1.2f);
 	memcpy(m_tonemappingCB->Map(), &zoomData, sizeof(zoomData));
+
+#if ENABLE_RTGI
+	//set GI RT data
+	static RTGICBData rtgiData = {};
+	rtgiData.InvViewProjection = invViewProjection;
+	rtgiData.ViewProjection = viewProjection;
+
+	rtgiData.RTSize = { (float)m_rtgiRT->GetWidth(), (float)m_rtgiRT->GetHeight(), 1.0f / m_rtgiRT->GetWidth(), 1.0f / m_rtgiRT->GetHeight() };
+	rtgiData.FrameIndex = frameCount % 4;
+
+	static bool useConsineWeighted = true;
+//	if (!giSamplesInitialised)
+	{
+		rtgiData.SampleVectors[0].w = sm_noofRTGISamples;
+
+		for (int i = 0; i < sm_noofRTGISamples; i++)
+		{
+			float xi[2] = { rand() / (float)RAND_MAX, rand() / (float)RAND_MAX };
+			if (useConsineWeighted)
+			{
+				rtgiData.SampleVectors[i].x = sqrt(xi[0]) * cos(2 * PI * xi[1]);
+				rtgiData.SampleVectors[i].y = sqrt(xi[0]) * sin(2 * PI * xi[1]);
+				rtgiData.SampleVectors[i].z = sqrt(1 - xi[0]);
+			}
+			else
+			{
+				rtgiData.SampleVectors[i].x = sqrt(1 - xi[0] * xi[0]) * cos(2 * PI * xi[1]);
+				rtgiData.SampleVectors[i].y = sqrt(1 - xi[0] * xi[0]) * sin(2 * PI * xi[1]);
+				rtgiData.SampleVectors[i].z = xi[0];
+			}
+		}
+
+		//useConsineWeighted = !useConsineWeighted;
+
+		giSamplesInitialised = true;
+
+		m_debugRenderer.Begin();
+		XMFLOAT3 colour = { 1,0,0 };
+
+		XMFLOAT3 normal = { 0, 0, 1 };
+		XMFLOAT3 start = { 2, 3, -7.35f };
+		XMFLOAT3 tan;
+
+		if (normal.z != 0)
+			tan = { 1, 1, -(normal.x + normal.y) / normal.z };
+		else if (normal.y != 0)
+			tan = { 1, -(normal.x + normal.z) / normal.y, 1 };
+		else
+			tan = { -(normal.y + normal.z) / normal.x, 1, 1 };
+
+		//tan = { 1,0,0 };
+		
+		XMVECTOR N = Float3ToVector4(normal);
+		XMVECTOR T = Float3ToVector4(tan);
+
+		T = XMVector3Normalize(T);
+
+		XMVECTOR B = XMVector3Cross(N, T);
+
+		B = XMVector3Normalize(B);
+
+		for (int i = 0; i < sm_noofRTGISamples; i++)
+		{
+			XMVECTOR end =	Float3ToVector4(start) + 
+							8 * rtgiData.SampleVectors[i].x * T + 
+							8 * rtgiData.SampleVectors[i].y * B + 
+							8 * rtgiData.SampleVectors[i].z * N;
+
+			m_debugRenderer.AddLine(start, Vector4ToFloat3(end), colour);
+		}
+
+		m_debugRenderer.End();
+
+	}
+
+	memcpy(m_rtgiCB->Map(), &rtgiData, sizeof(rtgiData));
+
+#endif
 
 	if(!EnableManualJitter)
 		frameCount++;
@@ -1486,18 +1967,26 @@ void FeaxRenderer::OnDestroy()
 
 	delete m_blueNoiseTexture;
 
+	delete m_rtgiCB;
 	delete m_gbufferCB;
 	delete m_shadowsCB;
 	delete m_ssrCB;
 	delete m_taaCB;
 	delete m_tonemappingCB;
 	delete m_velocityCB;
+	delete m_lightsCB;
+	delete m_lightingCB;
+	delete m_shadowAtlasRT;
+	delete m_shadowAtlasCB;
+	delete m_depthStencil;
 
 	delete Graphics::Context.m_scene;
 	Graphics::Context.m_scene = nullptr;
 
 	delete Graphics::Context.m_descriptorManager;
 	Graphics::Context.m_descriptorManager = nullptr;
+
+	ShaderCompiler::Destroy();
 
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
@@ -1540,7 +2029,7 @@ void FeaxRenderer::PopulateCommandList()
     // However, when ExecuteCommandList() is called on a particular command 
     // list, that command list can then be reset at any time and must be before 
     // re-recording.
-    ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_gbufferPSO.GetPipelineStateObject()));
+    ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_shadowAtlasPSO.GetPipelineStateObject()));
 
 	GPUDescriptorHeap* gpuDescriptorHeap = descriptorManager->GetGPUHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	gpuDescriptorHeap->Reset();
@@ -1551,10 +2040,64 @@ void FeaxRenderer::PopulateCommandList()
 
 	// Record commands.
 	{
-		//gbuffer pass
+		//shadow map pass
+		if(true)
 		{
 			Scene* scene = Graphics::Context.m_scene;
 
+			m_commandList->SetGraphicsRootSignature(m_shadowAtlasRS.GetSignature());
+
+			//transition buffers to rendertarget outputs
+			ResourceBarrierBegin(Graphics::Context);
+			m_shadowAtlasRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+			ResourceBarrierEnd(Graphics::Context);
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_shadowAtlasRT->GetDSV().GetCPUHandle());
+			m_commandList->OMSetRenderTargets(0, nullptr, FALSE, &dsvHandle);
+			m_commandList->ClearDepthStencilView(m_shadowAtlasRT->GetDSV().GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+			auto& pointLights = m_lightManager.GetPointLights();
+
+			UINT index = 0;
+			for (int lightIndex = 0; lightIndex < pointLights.size(); lightIndex++)
+			{
+				for (int face = 0; face < 6; face++)
+				{			
+					CD3DX12_VIEWPORT viewport(face * sm_shadowAtlasTileWidth, lightIndex * sm_shadowAtlasTileHeight, sm_shadowAtlasTileWidth, sm_shadowAtlasTileHeight);
+					CD3DX12_RECT scissorRect(face * sm_shadowAtlasTileWidth, lightIndex * sm_shadowAtlasTileHeight, face * sm_shadowAtlasTileWidth + sm_shadowAtlasTileWidth, lightIndex * sm_shadowAtlasTileHeight + sm_shadowAtlasTileHeight);
+
+					m_commandList->RSSetViewports(1, &viewport);
+					m_commandList->RSSetScissorRects(1, &scissorRect);
+
+					DescriptorHandle cbvHandle;
+					for (ModelInstance* modelInstance : scene->GetModelInstances())
+					{
+						cbvHandle = gpuDescriptorHeap->GetHandleBlock(2);
+						gpuDescriptorHeap->AddToHandle(cbvHandle, m_shadowAtlasCB->GetCBV());
+						gpuDescriptorHeap->AddToHandle(cbvHandle, modelInstance->GetCB()->GetCBV());
+
+						m_commandList->SetGraphicsRoot32BitConstant(0, index, 0);
+						m_commandList->SetGraphicsRootDescriptorTable(1, cbvHandle.GetGPUHandle());
+
+						modelInstance->GetModel()->Render(m_commandList.Get());
+					}
+
+					index++;
+				}
+			}
+
+			//transition rendertargets to shader resources 
+			ResourceBarrierBegin(Graphics::Context);
+			m_shadowAtlasRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			ResourceBarrierEnd(Graphics::Context);
+		}
+
+		//gbuffer pass
+		if (true)
+		{
+			Scene* scene = Graphics::Context.m_scene;
+
+			m_commandList->SetPipelineState(m_gbufferPSO.GetPipelineStateObject());
 			m_commandList->SetGraphicsRootSignature(m_gbufferRS.GetSignature());
 
 			m_commandList->RSSetViewports(1, &m_viewport);
@@ -1570,6 +2113,8 @@ void FeaxRenderer::PopulateCommandList()
 			m_mainRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			m_shadowsRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 			m_shadowsHistoryRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			m_depthStencil->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
 			ResourceBarrierEnd(Graphics::Context);
 
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] =
@@ -1578,29 +2123,38 @@ void FeaxRenderer::PopulateCommandList()
 				m_gbufferRT[GBuffer::Normal]->GetRTV().GetCPUHandle()
 			};
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_depthStencil->GetDSV().GetCPUHandle());
 			m_commandList->OMSetRenderTargets(_countof(rtvHandles), rtvHandles, FALSE, &dsvHandle);
 
 			const float clearColor[] = { 0.0f, 0.7f, 1.0f, 0.0f };
 			const float clearNormal[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 			m_commandList->ClearRenderTargetView(rtvHandles[0], clearColor, 0, nullptr);
 			m_commandList->ClearRenderTargetView(rtvHandles[1], clearNormal, 0, nullptr);
-			m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+			m_commandList->ClearDepthStencilView(m_depthStencil->GetDSV().GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 			DescriptorHandle cbvHandle;
 			DescriptorHandle srvHandle;
 
-			srvHandle = gpuDescriptorHeap->GetHandleBlock(m_textureManager.GetTextures().size());
+			assert(m_textureManager.GetTextures().size() < sm_MaxNoofTextures);
 
-			for(Texture* texture: m_textureManager.GetTextures())
+			srvHandle = gpuDescriptorHeap->GetHandleBlock(sm_MaxNoofTextures);
+
+			auto textures = m_textureManager.GetTextures();
+
+			for (int i = 0; i < sm_MaxNoofTextures; i++)
 			{
-				gpuDescriptorHeap->AddToHandle(srvHandle, texture->GetSRV());
+				if (i < textures.size())
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, textures[i]->GetSRV());
+				}
+				else
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, m_nullDescriptor);
+				}
 			}
 
 			for ( ModelInstance* modelInstance : scene->GetModelInstances() )
 			{
-				Material& material = modelInstance->GetMaterial();
-
 				cbvHandle = gpuDescriptorHeap->GetHandleBlock(2);
 				gpuDescriptorHeap->AddToHandle(cbvHandle, m_gbufferCB->GetCBV());
 				gpuDescriptorHeap->AddToHandle(cbvHandle, modelInstance->GetCB()->GetCBV());
@@ -1615,10 +2169,13 @@ void FeaxRenderer::PopulateCommandList()
 			ResourceBarrierBegin(Graphics::Context);
 			m_gbufferRT[GBuffer::Albedo]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			m_gbufferRT[GBuffer::Normal]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			m_depthStencil->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
 			ResourceBarrierEnd(Graphics::Context);
 		}
 
 		//raytraced shadows pass
+		if (true)
 		{
 			Scene* scene = Graphics::Context.m_scene;
 
@@ -1631,7 +2188,7 @@ void FeaxRenderer::PopulateCommandList()
 			gpuDescriptorHeap->AddToHandle(cbvHandle, m_shadowsCB->GetCBV());
 
 			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(5);
-			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Normal]->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, bvh->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_shadowsHistoryRT->GetSRV());
@@ -1662,7 +2219,11 @@ void FeaxRenderer::PopulateCommandList()
 		}
 
 		//lighting pass
+		if (true)
 		{
+			Scene* scene = Graphics::Context.m_scene;
+			Buffer* bvh = scene->GetBVHBuffer();
+
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] =
 			{
 				m_lightingRT[Lighting::Diffuse]->GetRTV().GetCPUHandle(),
@@ -1679,15 +2240,21 @@ void FeaxRenderer::PopulateCommandList()
 			m_commandList->SetPipelineState(m_lightingPSO.GetPipelineStateObject());
 			m_commandList->SetGraphicsRootSignature(m_lightingRS.GetSignature());
 
-			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
+			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(3);
 			gpuDescriptorHeap->AddToHandle(cbvHandle, m_lightingCB->GetCBV());
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_lightsCB->GetCBV());
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_shadowAtlasCB->GetCBV());
 
-			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(4);
+			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(6);
 
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Albedo]->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Normal]->GetSRV());
-			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_shadowsRT->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_shadowAtlasRT->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, bvh->GetSRV());
+
+			//gpuDescriptorHeap->AddToHandle(srvHandle, m_shadowAtlasDebug->GetSRV());
 
 			m_commandList->SetGraphicsRootDescriptorTable(0, cbvHandle.GetGPUHandle());
 			m_commandList->SetGraphicsRootDescriptorTable(1, srvHandle.GetGPUHandle());
@@ -1703,8 +2270,92 @@ void FeaxRenderer::PopulateCommandList()
 			ResourceBarrierEnd(Graphics::Context);
 		}
 
-		//composite pass
+		//Raytraced GI Pass
+#if ENABLE_RTGI
+		if(true)
 		{
+			Scene* scene = Graphics::Context.m_scene;
+
+			ResourceBarrierBegin(Graphics::Context);
+			m_rtgiRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			m_rtgiHistoryRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			ResourceBarrierEnd(Graphics::Context);
+
+			CD3DX12_VIEWPORT viewport(0.0f, 0.0f, static_cast<float>(m_rtgiRT->GetWidth()), static_cast<float>(m_rtgiRT->GetHeight()));
+			CD3DX12_RECT scissorRect(0, 0, static_cast<LONG>(m_rtgiRT->GetWidth()), static_cast<LONG>(m_rtgiRT->GetHeight()));
+
+			m_commandList->RSSetViewports(1, &viewport);
+			m_commandList->RSSetScissorRects(1, &scissorRect);
+
+			m_commandList->SetPipelineState(m_rtgiPSO.GetPipelineStateObject());
+			m_commandList->SetComputeRootSignature(m_rtgiRS.GetSignature());
+
+			Buffer* bvh = scene->GetBVHBuffer();
+			Buffer* bvhNormals = scene->GetBVHBufferNormals();
+			Buffer* bvhUVs = scene->GetBVHBufferUVs();
+
+			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(2);
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_rtgiCB->GetCBV());
+			gpuDescriptorHeap->AddToHandle(cbvHandle, m_lightsCB->GetCBV());
+
+			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(8 + sm_MaxNoofTextures);
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_rtgiHistoryRT->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV()); // depth buffer
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Normal]->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Albedo]->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, bvh->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, bvhNormals->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, bvhUVs->GetSRV());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_materialBuffer->GetSRV());
+
+			assert(m_textureManager.GetTextures().size() < sm_MaxNoofTextures);
+			auto textures = m_textureManager.GetTextures();
+
+			for (int i = 0; i < sm_MaxNoofTextures; i++)
+			{
+				if (i < textures.size())
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, textures[i]->GetSRV());
+				}
+				else
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, m_nullDescriptor);
+				}
+			}
+
+			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
+			gpuDescriptorHeap->AddToHandle(uavHandle, m_rtgiRT->GetUAV());
+
+			m_commandList->SetComputeRootDescriptorTable(0, cbvHandle.GetGPUHandle());
+			m_commandList->SetComputeRootDescriptorTable(1, srvHandle.GetGPUHandle());
+			m_commandList->SetComputeRootDescriptorTable(2, uavHandle.GetGPUHandle());
+
+			const uint32_t threadGroupSizeX = m_rtgiRT->GetWidth() / 8 + 1;
+			const uint32_t threadGroupSizeY = m_rtgiRT->GetHeight() / 8 + 1;
+
+			m_commandList->Dispatch(threadGroupSizeX, threadGroupSizeY, 1);
+
+			//copy main RT to history
+			ResourceBarrierBegin(Graphics::Context);
+			m_rtgiHistoryRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_COPY_DEST);
+			m_rtgiRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			ResourceBarrierEnd(Graphics::Context);
+
+			m_commandList->CopyResource(m_rtgiHistoryRT->GetResource(), m_rtgiRT->GetResource());
+		}
+#endif
+
+		//composite pass
+		if (true)
+		{
+#if ENABLE_RTGI
+			ResourceBarrierBegin(Graphics::Context);
+			m_rtgiRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			ResourceBarrierEnd(Graphics::Context);
+#endif
+			m_commandList->RSSetViewports(1, &m_viewport);
+			m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] =
 			{
 				m_mainRT->GetRTV().GetCPUHandle(),
@@ -1715,12 +2366,16 @@ void FeaxRenderer::PopulateCommandList()
 			m_commandList->SetPipelineState(m_mainPSO.GetPipelineStateObject());
 			m_commandList->SetGraphicsRootSignature(m_mainRS.GetSignature());
 
-			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(3);
+			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(4);
 
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Albedo]->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_lightingRT[Lighting::Diffuse]->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_lightingRT[Lighting::Specular]->GetSRV());
-
+#if ENABLE_RTGI
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_rtgiRT->GetSRV());
+#else
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_nullDescriptor);
+#endif
 			m_commandList->SetGraphicsRootDescriptorTable(0, srvHandle.GetGPUHandle());
 
 			m_commandList->IASetVertexBuffers(0, 1, &m_fullscreenVertexBufferView);
@@ -1735,12 +2390,13 @@ void FeaxRenderer::PopulateCommandList()
 		}
 
 		//SSR Pass
+		if (true)
 		{
 			Scene* scene = Graphics::Context.m_scene;
 
 			ResourceBarrierBegin(Graphics::Context);
+			m_mainRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			m_ssrRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			m_mainRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			ResourceBarrierEnd(Graphics::Context);
 
 			m_commandList->SetPipelineState(m_ssrPSO[m_ssrPSOID].GetPipelineStateObject());
@@ -1753,9 +2409,9 @@ void FeaxRenderer::PopulateCommandList()
 			DescriptorHandle cbvHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(cbvHandle, m_ssrCB->GetCBV());
 
-			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(8 + m_textureManager.GetTextures().size());
+			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(8 + sm_MaxNoofTextures);
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_mainRT->GetSRV());
-			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart()); // depth buffer
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV()); // depth buffer
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Normal]->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_gbufferRT[GBuffer::Albedo]->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, bvh->GetSRV());
@@ -1763,9 +2419,19 @@ void FeaxRenderer::PopulateCommandList()
 			gpuDescriptorHeap->AddToHandle(srvHandle, bvhUVs->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_materialBuffer->GetSRV());
 
-			for (Texture* texture : m_textureManager.GetTextures())
+			assert(m_textureManager.GetTextures().size() < sm_MaxNoofTextures);
+			auto textures = m_textureManager.GetTextures();
+
+			for (int i = 0; i < sm_MaxNoofTextures; i++)
 			{
-				gpuDescriptorHeap->AddToHandle(srvHandle, texture->GetSRV());
+				if (i < textures.size())
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, textures[i]->GetSRV());
+				}
+				else
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, m_nullDescriptor);
+				}
 			}
 
 			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
@@ -1782,6 +2448,7 @@ void FeaxRenderer::PopulateCommandList()
 		}
 
 		//calculate velocity buffer
+		if (true)
 		{
 			ResourceBarrierBegin(Graphics::Context);
 			m_velocityRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -1794,7 +2461,7 @@ void FeaxRenderer::PopulateCommandList()
 			gpuDescriptorHeap->AddToHandle(cbvHandle, m_velocityCB->GetCBV());
 
 			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(1);
-			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV());
 
 			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
 			gpuDescriptorHeap->AddToHandle(uavHandle, m_velocityRT->GetUAV());
@@ -1815,6 +2482,7 @@ void FeaxRenderer::PopulateCommandList()
 		}
 
 		//temporal AA resolve
+		if (true)
 		{
 			Scene* scene = Graphics::Context.m_scene;
 
@@ -1833,7 +2501,7 @@ void FeaxRenderer::PopulateCommandList()
 			DescriptorHandle srvHandle = gpuDescriptorHeap->GetHandleBlock(4);
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_ssrRT->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_taaHistoryRT->GetSRV());
-			gpuDescriptorHeap->AddToHandle(srvHandle, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV());
 			gpuDescriptorHeap->AddToHandle(srvHandle, m_velocityRT->GetSRV());
 
 			DescriptorHandle uavHandle = gpuDescriptorHeap->GetHandleBlock(1);
@@ -1858,9 +2526,11 @@ void FeaxRenderer::PopulateCommandList()
 		}
 
 		//tonemap and copy to backbuffer
+		if (true)
 		{
 			ResourceBarrierBegin(Graphics::Context);
 			m_mainRT->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			m_depthStencil->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 			ResourceBarrierEnd(Graphics::Context);
 
 			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] =
@@ -1868,7 +2538,9 @@ void FeaxRenderer::PopulateCommandList()
 				m_backbuffer[m_frameIndex]->GetRTV().GetCPUHandle()
 			};
 
-			m_commandList->OMSetRenderTargets(_countof(rtvHandles), rtvHandles, FALSE, nullptr);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_depthStencil->GetDSV().GetCPUHandle());
+
+			m_commandList->OMSetRenderTargets(_countof(rtvHandles), rtvHandles, FALSE, &dsvHandle);
 
 			m_commandList->SetPipelineState(m_tonemappingPSO.GetPipelineStateObject());
 			m_commandList->SetGraphicsRootSignature(m_tonemappingRS.GetSignature());
@@ -1886,6 +2558,11 @@ void FeaxRenderer::PopulateCommandList()
 			m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 			m_commandList->DrawInstanced(3, 1, 0, 0);
+		}
+
+		//debug render
+		{
+		//	m_debugRenderer.Render(m_gbufferCB, gpuDescriptorHeap);
 		}
 
 		//render UI

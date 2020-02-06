@@ -23,6 +23,7 @@ Texture::Texture(int width, int height, int noofChannels, unsigned char *data)
 , m_height(height)
 , m_noofChannels(m_noofChannels)
 , m_data(data)
+, m_averageColour(0,0,0,1)
 {
 
 }
@@ -39,6 +40,10 @@ Texture::Texture(const char* filename, ID3D12Device* device, ID3D12GraphicsComma
 	{
 		for (int x = 0; x < m_width; x++)
 		{
+			m_averageColour.x += pow(data[srcIndex] / 255.0f, 2.2f);
+			m_averageColour.y += pow(data[srcIndex+1] / 255.0f, 2.2f);
+			m_averageColour.z += pow(data[srcIndex+2] / 255.0f, 2.2f);
+
 			m_data[destIndex++] = data[srcIndex++];
 			m_data[destIndex++] = data[srcIndex++];
 			m_data[destIndex++] = data[srcIndex++];
@@ -50,6 +55,10 @@ Texture::Texture(const char* filename, ID3D12Device* device, ID3D12GraphicsComma
 
 		}
 	}
+
+	m_averageColour.x /= m_width * m_height;
+	m_averageColour.y /= m_width * m_height;
+	m_averageColour.z /= m_width * m_height;
 
 	m_noofChannels = 4;
 

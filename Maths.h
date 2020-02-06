@@ -7,6 +7,8 @@ typedef UINT uint;
 typedef UINT64 uint64;
 typedef unsigned char uint8;
 
+#define PI 3.14159265359f
+
 #define Align(value, alignment) (((value + alignment - 1) / alignment) * alignment)
 
 inline XMVECTOR Float3ToVector4(XMFLOAT3& floatVec, float w)
@@ -79,6 +81,10 @@ inline float XMFloat3MaxElement(const XMFLOAT3 &a)
 	return max(a.x, max(a.y, a.z));
 }
 
+inline float XMVector3MaxElement(const XMVECTOR& a)
+{
+	return max(a.m128_f32[0], max(a.m128_f32[1], a.m128_f32[2]));
+}
 
 struct AABB
 {
@@ -110,3 +116,17 @@ struct AABB
 
 };
  
+inline float Random01()
+{
+	return rand() / (float)RAND_MAX;
+}
+
+inline float Lerp(float a, float b, float t)
+{
+	return a * (1.0 - t) + b * t;
+}
+
+//based on ImGUI's version
+template<typename T> inline T Clamp(T v, T mn, T mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
+
+XMVECTOR ConvertKelvinToLinearRGB(float K);

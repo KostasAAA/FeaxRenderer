@@ -1,14 +1,33 @@
 #include "LightingCommon.h"
 
+#define BACKFACE_CULLING 0
+#include"raytracingCommon.h"
+
+#define RAYTRACED_POINTLIGHT_SHADOWS
 
 cbuffer LightingConstantBuffer : register(b0)
 {
 	float4x4	InvViewProjection;
-	float4		LightDirection;
 	float4		CameraPos;
 	float4		RTSize;
 	float2		Jitter;
 	float2		pad;
+};
+
+cbuffer LightsConstantBuffer : register(b1)
+{
+	uint	NoofDirectional;
+	uint	NoofPoint;
+	uint	NoofSpot;
+	uint	LightsConstantBuffer_pad;
+	DirectionalLightData DirectionalLight;
+	PointLightData PointLights[100];
+};
+
+#define MaxNoofShadowCasters 2
+cbuffer ShadowAtlasPassCB : register(b2)
+{
+	float4x4 LightViewProjection[MaxNoofShadowCasters * 6];
 };
 
 struct VSInput
@@ -40,20 +59,18 @@ PSInput VSMain(VSInput input)
 	return result;
 }
 
-
 Texture2D<float4> albedoBuffer : register(t0);
 Texture2D<float4> normalBuffer : register(t1);
 Texture2D<float> depthBuffer : register(t2);
 Texture2D<float> shadowBuffer : register(t3);
+Texture2D<float> shadowAtlas : register(t4);
+BVHTreeBuffer	BVHTree : register(t5);
+
+SamplerComparisonState SamplerShadows : register(s0);
 
 PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
-	//int2 screenPos = input.uv * RTSize.xy;
-
-	//output.diffuse.rgb = (screenPos.x % 2 == screenPos.y % 2) ? float3(1, 0, 0) : float3(0, 1, 0);
-
-	//return output;
 
 	float gaussian[5][5] = 
 	{ 
@@ -100,7 +117,7 @@ PSOutput PSMain(PSInput input)
 		shadow /= 273.0;
 		//shadow /= (2 * w + 1) * (2 * w + 1);
 
-		shadow =  shadowBuffer[input.position.xy].x;
+		shadow =   shadowBuffer[input.position.xy].x;
 
 		//if (input.position.x >= 1280/2)
 		 //	shadow = shadowBuffer[input.position.xy].x;
@@ -108,12 +125,80 @@ PSOutput PSMain(PSInput input)
 	//	if ( LightDirection.w > 0)
 	//		shadow = shadowBuffer[input.position.xy].x;
 
-		float3 lightDir = LightDirection.xyz;
-		float lightIntensity = LightDirection.w;
+		float3 lightDir = DirectionalLight.Direction.xyz;
+		float3 lightColour = saturate(DirectionalLight.Colour.xyz);
+		float lightIntensity = DirectionalLight.Intensity.x;
+		float NdotL = saturate(dot(normal.xyz, lightDir));
 
-		//shadow = 1;
-		output.diffuse.rgb = lightIntensity * shadow * saturate(dot(normal.xyz, lightDir)) + 0.3;
-		output.specular.rgb = lightIntensity * shadow * LightingGGX(normal.xyz, viewDir, lightDir, roughness, specularColour);
+		output.diffuse.rgb = (lightIntensity * shadow * DiffuseBRDF() * NdotL) * lightColour + 0.01 * lightIntensity;
+		output.specular.rgb = (lightIntensity * shadow * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) ) * lightColour;
+
+		[loop]
+		for (uint i = 0; i < NoofPoint; i++)
+		{
+			float dist = length(PointLights[i].Position.xyz - worldPos.xyz);
+			lightDir = normalize(PointLights[i].Position.xyz - worldPos.xyz);
+			NdotL = saturate(dot(normal.xyz, lightDir));
+
+			if (dist > PointLights[i].Radius && NdotL == 0)
+				continue;
+
+#if defined(RAYTRACED_POINTLIGHT_SHADOWS)
+
+			HitData hitdata;
+			bool collision = TraceRay(BVHTree, worldPos.xyz + 0.01 * lightDir, lightDir, true, hitdata, dist);
+
+			shadow = 1 - (collision && hitdata.Distance < dist);
+
+#else
+			int faceID = 0;
+
+			float3 axes = abs(lightDir);
+			float maxComponent = max(axes.x, max(axes.y, axes.z));
+
+			if (maxComponent == axes.x) // x axis
+			{
+				faceID = lightDir.x <= 0 ? 0 : 2;
+			}
+			else if (maxComponent == axes.y) //y axis
+			{
+				faceID = lightDir.y <= 0 ? 4 : 5;
+			}
+			else //z axis
+			{
+				faceID = lightDir.z <= 0 ? 1 : 3;
+			}
+
+			float3 cols[] = 
+			{
+				float3(1,0,0),
+				float3(0,1,0),
+				float3(0,0,1),
+				float3(1,0,1),
+				float3(1,1,0),
+				float3(0,1,1),
+			};
+
+			float4 lightSpacePos = mul(LightViewProjection[i * 6 + faceID], float4(worldPos.xyz, 1));
+			lightSpacePos.xyz /= lightSpacePos.w;
+
+			lightSpacePos.xy = lightSpacePos.xy * float2(0.5, -0.5) + float2(0.5, 0.5);
+			lightSpacePos.xy = PointLights[i].ShadowmapRange.xy + PointLights[i].ShadowmapRange.zw * float2(faceID, 0) + lightSpacePos.xy * PointLights[i].ShadowmapRange.zw;
+				
+			float shadowDepth = shadowAtlas.SampleCmpLevelZero(SamplerShadows, lightSpacePos.xy, lightSpacePos.z - 0.001).r;
+
+			shadow = shadowDepth;// lightSpacePos.z < shadowDepth + 0.001;
+#endif
+			float3 lightColour = PointLights[i].Colour.xyz;
+			float lightIntensity = PointLights[i].Intensity;
+
+			float3 worldToLight = PointLights[i].Position.xyz - worldPos.xyz;
+
+			float falloff = SquareFalloffAttenuation(worldToLight, rcp(PointLights[i].Radius)); // 1 - saturate(dist / PointLights[i].Radius);
+
+			output.diffuse.rgb += (lightIntensity * shadow * falloff * DiffuseBRDF() * NdotL) * lightColour;
+			output.specular.rgb += (lightIntensity * shadow * falloff) * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) * lightColour;
+		}
 	}
 	else
 		output.diffuse.rgb = 1;

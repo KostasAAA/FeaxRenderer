@@ -1,3 +1,5 @@
+#include "Common.hlsl"
+
 struct VSInput
 {
 	float3 position : POSITION;
@@ -28,6 +30,10 @@ PSInput VSMain(VSInput input)
 Texture2D<float4> albedoBuffer : register(t0);
 Texture2D<float4> lightDiffuseBuffer : register(t1);
 Texture2D<float4> lightSpecularBuffer : register(t2);
+Texture2D<float4> giBuffer : register(t3);
+
+SamplerState SamplerLinear : register(s0);
+
 
 PSOutput PSMain(PSInput input)
 {
@@ -37,14 +43,20 @@ PSOutput PSMain(PSInput input)
 	float3 diffuse = lightDiffuseBuffer[input.position.xy].rgb;
 	float3 specular = lightSpecularBuffer[input.position.xy].rgb;
 
-	albedo.rgb = pow(albedo.rgb, 2.2);
+	float3 gi = giBuffer.SampleLevel(SamplerLinear, input.uv.xy, 0).rgb;
 
-	float metalness = albedo.w;
-	albedo.rgb *= 1 - metalness;
+	albedo.rgb = accurateSRGBToLinear(albedo.rgb);
 
-	output.colour.rgb = albedo * diffuse + specular;
+	float emissive = uint(albedo.w * 255) & 2;
+	float metalness = uint(albedo.w * 255) & 1;
 
-	//output.colour.rgb = diffuse;
+	output.colour.rgb = albedo.rgb;
+
+	if (emissive == 0)
+	{
+		albedo.rgb *= 1 - metalness;
+		output.colour.rgb =  albedo* (diffuse + gi) + specular;
+	}
 
     return output;
 }

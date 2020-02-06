@@ -13,7 +13,7 @@ cbuffer cbPerPass : register(b0)
   
 Texture2D<float>			depthBuffer : register(t0);
 Texture2D<float4>			normalBuffer : register(t1);
-Buffer<float4>				BVHTree : register(t2);
+BVHTreeBuffer				BVHTree : register(t2);
 Texture2D<float>			shadowHistory : register(t3);
 Texture2D<float4>			blueNoiseBuffer : register(t4);
 
@@ -23,60 +23,6 @@ RWTexture2D<float>			outputRT : register(u0);
 #define THREADY 8
 #define THREADGROUPSIZE (THREADX*THREADY)
 
-bool TraceRay(float3 worldPos, float3 rayDir)
-{
-	float t = 0;
-	float2 bCoord = 0;
-
-	int dataOffset = 0;
-	bool done = false;
-
-	bool collision = false;
-
-	int offsetToNextNode = 1;
-
-	float3 rayDirInv = rcp(rayDir);
-
-	[loop]
-	while (offsetToNextNode != 0)
-	{
-		float4 element0 = BVHTree[dataOffset++].xyzw;
-
-		offsetToNextNode = int(element0.w);
-
-		collision = false;
-
-		if (offsetToNextNode < 0)
-		{
-			float4 element1 = BVHTree[dataOffset++].xyzw;
-
-			//try collision against this node's bounding box	
-			float3 bboxMin = element0.xyz;
-			float3 bboxMax = element1.xyz;
-
-			//intermediate node check for intersection with bounding box
-			collision = RayIntersectsBox(worldPos.xyz, rayDirInv, bboxMin.xyz, bboxMax.xyz);
-
-			//if there is collision, go to the next node (left) or else skip over the whole branch
-			if (!collision)
-				dataOffset -= offsetToNextNode;
-		}
-		else if (offsetToNextNode > 0)
-		{
-			float4 vertex0 = element0;
-			float4 vertex1MinusVertex0 = BVHTree[dataOffset++].xyzw;
-			float4 vertex2MinusVertex0 = BVHTree[dataOffset++].xyzw;
-
-			//check for intersection with triangle
-			collision = RayTriangleIntersect(worldPos.xyz, rayDir, vertex0.xyz, vertex1MinusVertex0.xyz, vertex2MinusVertex0.xyz, t, bCoord);
-
-			if (collision)
-				return true;
-		}
-	};
-
-	return false;
-}
 
 #define PI 3.14159265359
 
@@ -99,9 +45,9 @@ float2 randomOnDisk(float2 uv)
 	return rho * float2(cos(phi), sin(phi));
 }
 
-float2 randomOnDiskBlue(int2 screenPos)
+float2 randomOnDiskBlue(uint2 screenPos)
 {
-	float3 rand = blueNoiseBuffer[int2(screenPos.x % 64, screenPos.y % 64)].xyz;
+	float3 rand = blueNoiseBuffer[uint2(screenPos.x % 64, screenPos.y % 64)].xyz;
 
 	float rho = sqrt(rand.x);
 	float phi = rand.y * 2 * PI + gActivateRotation * cameraPos.w;
@@ -164,12 +110,12 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 #endif
 				rayDir = normalize(lightDir.xyz + rx * lightPerpX + ry * lightPerpY);
 
-				collision += TraceRay(worldPos.xyz, rayDir);
+				collision += TraceRay(BVHTree, worldPos.xyz, rayDir);
 			}
 		}
 		collision /= w*w;
 #else
-		collision = TraceRay(worldPos.xyz, rayDir);
+		collision = TraceRay(BVHTree, worldPos.xyz, rayDir);
 #endif
 	}
 

@@ -15,19 +15,19 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>D3D12HelloWindow</RootNamespace>
     <ProjectName>FeaxRenderer</ProjectName>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -59,15 +59,15 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);"Assimp\include"; "DirectXTK12\Inc"</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>dxc\include;%(AdditionalIncludeDirectories);Assimp\include;DirectXTK12\Inc</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxguid.lib;DirectXTK12.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies);assimp-vc140-mt.lib</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxguid.lib;DirectXTK12.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies);assimp-vc140-mt.lib</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
-      <AdditionalLibraryDirectories>Assimp\lib\x64;DirectXTK12\Bin\Desktop_2017_Win10\x64\Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>dxc\lib;Assimp\lib\x64;DirectXTK12\Bin\Desktop_2017_Win10\x64\Debug</AdditionalLibraryDirectories>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -90,7 +90,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);"Assimp\include"; "DirectXTK12\Inc"</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>dxc\include;%(AdditionalIncludeDirectories);Assimp\include;DirectXTK12\Inc</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
     </ClCompile>
     <Link>
@@ -98,9 +98,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>assimp-vc140-mt.lib;DirectXTK12.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;assimp-vc140-mt.lib;DirectXTK12.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
-      <AdditionalLibraryDirectories>Assimp\lib\x64;DirectXTK12\Bin\Desktop_2017_Win10\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>dxc\lib;Assimp\lib\x64;DirectXTK12\Bin\Desktop_2017_Win10\x64\Release</AdditionalLibraryDirectories>
     </Link>
     <CustomBuildStep>
       <TreatOutputAsContent>true</TreatOutputAsContent>
@@ -116,6 +116,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BVH.h" />
+    <ClInclude Include="DebugRenderer.h" />
     <ClInclude Include="dxc\dxcapi.h" />
     <ClInclude Include="dxc\dxcapi.use.h" />
     <ClInclude Include="DXR.h" />
@@ -130,6 +131,7 @@
     <ClInclude Include="ImGUI\imstb_rectpack.h" />
     <ClInclude Include="ImGUI\imstb_textedit.h" />
     <ClInclude Include="ImGUI\imstb_truetype.h" />
+    <ClInclude Include="LightManager.h" />
     <ClInclude Include="Maths.h" />
     <ClInclude Include="ModelLoader.h" />
     <ClInclude Include="Renderables\Material.h" />
@@ -137,6 +139,7 @@
     <ClInclude Include="Renderables\Model.h" />
     <ClInclude Include="RendertargetManager.h" />
     <ClInclude Include="Resources\Buffer.h" />
+    <ClInclude Include="Resources\Depthbuffer.h" />
     <ClInclude Include="Resources\DescriptorHeap.h" />
     <ClInclude Include="Resources\Graphics.h" />
     <ClInclude Include="Resources\PipelineState.h" />
@@ -154,6 +157,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BVH.cpp" />
+    <ClCompile Include="DebugRenderer.cpp" />
     <ClCompile Include="DXR.cpp" />
     <ClCompile Include="FeaxRenderer.cpp" />
     <ClCompile Include="GPUProfiler.cpp">
@@ -166,12 +170,15 @@
     <ClCompile Include="ImGUI\imgui_impl_dx12.cpp" />
     <ClCompile Include="ImGUI\imgui_impl_win32.cpp" />
     <ClCompile Include="ImGUI\imgui_widgets.cpp" />
+    <ClCompile Include="LightManager.cpp" />
+    <ClCompile Include="Maths.cpp" />
     <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="Renderables\Material.cpp" />
     <ClCompile Include="Renderables\Mesh.cpp" />
     <ClCompile Include="Renderables\Model.cpp" />
     <ClCompile Include="RendertargetManager.cpp" />
     <ClCompile Include="Resources\Buffer.cpp" />
+    <ClCompile Include="Resources\Depthbuffer.cpp" />
     <ClCompile Include="Resources\DescriptorHeap.cpp" />
     <ClCompile Include="Resources\Graphics.cpp" />
     <ClCompile Include="Resources\PipelineState.cpp" />
@@ -270,6 +277,13 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </CustomBuild>
+    <CustomBuild Include="Assets\Shaders\DebugRender.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </CustomBuild>
     <FxCompile Include="Assets\Shaders\Miss.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -290,6 +304,20 @@
       <FileType>Document</FileType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </CustomBuild>
+    <CustomBuild Include="Assets\Shaders\ShadowAtlasPass.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </CustomBuild>
+    <CustomBuild Include="Assets\Shaders\RTGI.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </CustomBuild>
   </ItemGroup>

@@ -15,6 +15,7 @@ public:
 	int Load(std::string filename);
 
 	std::vector<Texture*>& GetTextures() { return m_textures; }
+	Texture& GetTexture(int id) { return *m_textures[id]; }
 
 private:
 

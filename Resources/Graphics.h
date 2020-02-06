@@ -26,8 +26,9 @@ namespace Graphics
     extern D3D12_SAMPLER_DESC SamplerPointClampDesc;
     extern D3D12_SAMPLER_DESC SamplerPointBorderDesc;
     extern D3D12_SAMPLER_DESC SamplerLinearBorderDesc;
-
-    extern D3D12_CPU_DESCRIPTOR_HANDLE SamplerLinearWrap;
+	extern D3D12_SAMPLER_DESC SamplerShadowsDesc;
+	
+	extern D3D12_CPU_DESCRIPTOR_HANDLE SamplerLinearWrap;
     extern D3D12_CPU_DESCRIPTOR_HANDLE SamplerAnisoWrap;
     extern D3D12_CPU_DESCRIPTOR_HANDLE SamplerShadow;
     extern D3D12_CPU_DESCRIPTOR_HANDLE SamplerLinearClamp;

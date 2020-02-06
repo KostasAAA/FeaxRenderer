@@ -24,6 +24,7 @@ namespace Graphics
     D3D12_SAMPLER_DESC SamplerPointClampDesc;
     D3D12_SAMPLER_DESC SamplerPointBorderDesc;
     D3D12_SAMPLER_DESC SamplerLinearBorderDesc;
+	D3D12_SAMPLER_DESC SamplerShadowsDesc;
 
     D3D12_CPU_DESCRIPTOR_HANDLE SamplerLinearWrap;
     D3D12_CPU_DESCRIPTOR_HANDLE SamplerAnisoWrap;
@@ -76,6 +77,14 @@ void Graphics::InitializeCommonState(void)
 	SamplerLinearClampDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	SamplerLinearClampDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	SamplerLinearClampDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	
+	SamplerPointClampDesc = SamplerLinearClampDesc;
+	SamplerPointClampDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+
+	SamplerShadowsDesc = SamplerLinearClampDesc;
+	SamplerShadowsDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS;
+	SamplerShadowsDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+
 /*
     SamplerLinearWrap = SamplerLinearWrapDesc.CreateDescriptor();
 
