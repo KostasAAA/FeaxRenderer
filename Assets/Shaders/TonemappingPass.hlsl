@@ -73,7 +73,7 @@ float4 PSMain(PSInput input) : SV_Target
 	float ev100 = GetExposureSettings(Aperture, ShutterSpeed, ISO);
 	float exposure = GetExposure(ev100);
 
-	result *= exposure;
+//	result *= exposure;
 //	result *= Exposure;
 
 	output.rgb = accurateLinearToSRGB(abs(result.rgb));

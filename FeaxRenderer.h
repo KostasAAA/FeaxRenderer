@@ -190,6 +190,7 @@ private:
 		uint	NoofPoint;
 		uint	NoofSpot;
 		uint	pad;
+		XMFLOAT4 SkyLight;
 		DirectionalLightData DirectionalLight;
 		PointLightData PointLights[100];
 	};

@@ -45,8 +45,6 @@ PSOutput PSMain(PSInput input)
 
 	float3 gi = giBuffer.SampleLevel(SamplerLinear, input.uv.xy, 0).rgb;
 
-	albedo.rgb = accurateSRGBToLinear(albedo.rgb);
-
 	float emissive = uint(albedo.w * 255) & 2;
 	float metalness = uint(albedo.w * 255) & 1;
 
@@ -54,6 +52,8 @@ PSOutput PSMain(PSInput input)
 
 	if (emissive == 0)
 	{
+		albedo.rgb = accurateSRGBToLinear(albedo.rgb);
+
 		albedo.rgb *= 1 - metalness;
 		output.colour.rgb =  albedo* (diffuse + gi) + specular;
 	}
