@@ -86,6 +86,16 @@ inline float XMVector3MaxElement(const XMVECTOR& a)
 	return max(a.m128_f32[0], max(a.m128_f32[1], a.m128_f32[2]));
 }
 
+inline XMFLOAT4 XMFloat4Pow(XMFLOAT4& a, float power)
+{
+	return XMFLOAT4(
+		pow(a.x, power),
+		pow(a.y, power),
+		pow(a.z, power),
+		pow(a.w, power));
+}
+
+
 struct AABB
 {
 	XMFLOAT3	MinBounds;
@@ -142,7 +152,7 @@ inline float GetEV100(float aperture, float shutterSpeed, float sensitivity)
 // the camera's EV100
 inline float GetExposure(float ev100)
 {
-	return 1.0 / (pow(2.0, ev100) * 1.2);
+	return 1.0 / (pow(2.0f, ev100) * 1.2);
 }
 
 XMVECTOR ConvertKelvinToLinearRGB(float K);
