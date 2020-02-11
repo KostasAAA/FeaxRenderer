@@ -18,7 +18,7 @@
 #include "FeaxRenderer.h"
 #include "ShaderCompiler.h"
 
-#define ENABLE_RTGI 0
+#define ENABLE_RTGI 1
 
 using namespace Graphics;
 
@@ -297,20 +297,35 @@ void FeaxRenderer::LoadMeshes()
 		m_materials.push_back(material);
 #endif
 
+		float wallSize = 20;
+
 		//add a wall
 		model = new Model(Mesh::CreateCube(m_device.Get()));
-		objectToWorld = XMMatrixScaling(0.25f, 8.0f, 15.0f) * XMMatrixTranslationFromVector(XMVectorSet(-7.5f, 4.0f, 0.0f, 0.0f));
+		objectToWorld = XMMatrixScaling(0.25f, 8.0f, wallSize) * XMMatrixTranslationFromVector(XMVectorSet(-wallSize/2, 4.0f, 0.0f, 0.0f));
 
-		material.m_albedoID = m_textureManager.Load("Brick\\Bricks23_col.jpg");
+		material.m_albedoID = -1;// m_textureManager.Load("Marble\\Marble01_col.jpg");;// m_textureManager.Load("Brick\\Bricks23_col.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
-		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
+		material.m_albedoColour = XMFLOAT4(1, 1, 1, 1);// m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
+		objectToWorld = XMMatrixScaling(0.25f, 8.0f, wallSize) * XMMatrixTranslationFromVector(XMVectorSet(wallSize / 2, 4.0f, 0.0f, 0.0f));
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
 		//add another wall
-		objectToWorld = XMMatrixScaling(15.0f, 8.0f, 0.25f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 4.0f, -7.5f, 0.0f));
+		objectToWorld = XMMatrixScaling(wallSize, 8.0f, 0.25f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 4.0f, -wallSize / 2, 0.0f));
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		//add another wall
+		objectToWorld = XMMatrixScaling(wallSize, 8.0f, 0.25f) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 4.0f, wallSize / 2, 0.0f));
+
+		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
+
+		//add ceiling
+		objectToWorld = XMMatrixScaling(wallSize, 0.25, wallSize) * XMMatrixTranslationFromVector(XMVectorSet(5.0f, 8.0f,0, 0.0f));
 
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
@@ -325,7 +340,7 @@ void FeaxRenderer::LoadMeshes()
 		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
-		for (int i = 0; i < 5; i++)
+		for (int i = 0; i < 0*5; i++)
 		{
 			objectToWorld = XMMatrixScaling(10.0f, 0.05f, 0.05f) * XMMatrixRotationY(XMConvertToRadians(45)) * XMMatrixTranslationFromVector(XMVectorSet(0, 1.0f, i, 0.0f));
 			scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
@@ -367,17 +382,18 @@ void FeaxRenderer::LoadMeshes()
 
 		//add a floor
 		model = new Model(Mesh::CreatePlane(m_device.Get())); 
+		//model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\room.obj"));
 
-		material.m_albedoID = m_textureManager.Load("Marble\\Marble01_col.jpg");  // m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
+		material.m_albedoID = -1;// m_textureManager.Load("Marble\\Marble01_col.jpg");  // m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
 		material.m_normalID = m_textureManager.Load("Marble\\Marble01_nrm.jpg");  //  m_textureManager.Load("BlackTile\\Tiles52_nrm.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
 		material.m_uvScale = XMFLOAT2(3.0f, 3.0f);
-		material.m_normalScale = XMFLOAT2(0.05f, 0.05f);
-		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
+		material.m_normalScale = XMFLOAT2(1, 1);// XMFLOAT2(0.05f, 0.05f);
+		material.m_albedoColour = XMFLOAT4(1.0f, 0.0f, 0, 0);// m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
-		objectToWorld = XMMatrixScaling(5, 1, 5);
+		objectToWorld = XMMatrixScaling(5, 1, 5) * XMMatrixTranslationFromVector(XMVectorSet(0, 0.0f, 0, 0.0f));
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
 		m_materials.push_back(material);
@@ -1430,11 +1446,11 @@ void FeaxRenderer::OnUpdate()
 	static bool EnableManualJitter = false;
 	static float MipBias = -1.0f;
 	static int DilationMode = 0;
-	static float Aperture = 8.0f;
+	static float Aperture = 16.0f;
 	static float ISO = 100.0f;
 	static float ShutterSpeed = 1 / 100.0f;
 	static float ExposureValue = 13;
-	static float SunIntensity = 75000;
+	static float SunIntensity = 120000;
 	static bool giSamplesInitialised = false;
 
 	static bool RotateLights = false;
@@ -1457,7 +1473,7 @@ void FeaxRenderer::OnUpdate()
 		if (ImGui::CollapsingHeader("Camera"))
 		{
 			ImGui::SliderFloat("Sun Temperature", &DirLightTemperature, 2000, 10000);
-			ImGui::SliderFloat("Sun Intensity", &SunIntensity, 400, 150000);
+			ImGui::SliderFloat("Sun Intensity", &SunIntensity, 0, 150000);
 
 			ImGui::SliderFloat("ExposureValue", &ExposureValue, -10, 30);
 
@@ -1549,8 +1565,8 @@ void FeaxRenderer::OnUpdate()
 	static float rotY = 0;
 	static float rotX = 0;
 
-	static float lightRotY = 45.0f;
-	static float lightRotX = -90.0f;
+	static float lightRotY = 40.0f;
+	static float lightRotX = -110.0f;
 
 	static bool ToggleBlur = false;
 
@@ -1573,10 +1589,10 @@ void FeaxRenderer::OnUpdate()
 		ToggleBlur = !ToggleBlur;
 
 	if (IsKeyPressed(VK_LEFT))
-		lightRotY += 0.1f;
+		lightRotY += 2.0f;
 
 	if (IsKeyPressed(VK_RIGHT))
-		lightRotY -= 0.1f;
+		lightRotY -= 2.0f;
 
 	if (IsKeyPressed(VK_UP))
 		lightRotX += 2.0f;
@@ -1587,7 +1603,7 @@ void FeaxRenderer::OnUpdate()
 	XMMATRIX rotationCamera = XMMatrixRotationRollPitchYaw(rotX, rotY, 0);
 
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMVECTOR cameraPos = XMVectorSet(6.0f, 3.5f, 6.0f, 0.0f);
+	XMVECTOR cameraPos = XMVectorSet(5.0f, 3.5f, 5.0f, 0.0f);
 	XMVECTOR cameraLookAt = XMVectorSet(0.0f, 3.0f, 0.0f, 0.0f);
 
 	float fieldOfViewY = 3.141592654f / 4.0f;
@@ -1744,14 +1760,18 @@ void FeaxRenderer::OnUpdate()
 
 	memcpy(m_shadowAtlasCB->Map(), &shadowAtlasData, sizeof(shadowAtlasData));
 
+	float exposure = GetExposure(GetEV100(Aperture, ShutterSpeed, ISO));
+
+	XMVECTOR skyColour = XMVectorSet(0.5f, 0.8f, 1.0f, 0.0f);
+
 	LightsCBData lightData = {};
 
 	Light& directionalLight = m_lightManager.GetDirectionalLights()[0];
 	lightData.NoofDirectional = 1;
 	lightData.DirectionalLight.Direction = ToFloat4(lightDir);
 	lightData.DirectionalLight.Colour = ToFloat4(ConvertKelvinToLinearRGB(DirLightTemperature));// ToFloat4(directionalLight.m_colour);
-	lightData.DirectionalLight.Intensity = SunIntensity;// Lerp(400, 75000, f);//directionalLight.m_intensity;
-
+	lightData.DirectionalLight.Intensity =  exposure * SunIntensity;// Lerp(400, 75000, f);//directionalLight.m_intensity;
+	lightData.SkyLight = ToFloat4( exposure * 20000 * skyColour );
 	lightData.NoofPoint = pointLights.size();
 
 	index = 0;
@@ -1759,7 +1779,7 @@ void FeaxRenderer::OnUpdate()
 	{
 		lightData.PointLights[index].Position = ToFloat4(light.m_position);
 		lightData.PointLights[index].Colour = ToFloat4(light.m_colour);
-		lightData.PointLights[index].Intensity = light.m_intensity / (4 * PI); // convert Lumens to Candelas
+		lightData.PointLights[index].Intensity = exposure * light.m_intensity / (4 * PI); // convert Lumens to Candelas
 		lightData.PointLights[index].Radius = light.m_radius;
 		lightData.PointLights[index].Attenuation = light.m_attenuation;
 		lightData.PointLights[index].ShadowmapRange = ToFloat4(light.m_shadowmapRange);
@@ -1851,8 +1871,8 @@ void FeaxRenderer::OnUpdate()
 	rtgiData.RTSize = { (float)m_rtgiRT->GetWidth(), (float)m_rtgiRT->GetHeight(), 1.0f / m_rtgiRT->GetWidth(), 1.0f / m_rtgiRT->GetHeight() };
 	rtgiData.FrameIndex = frameCount % 4;
 
-	static bool useConsineWeighted = true;
-//	if (!giSamplesInitialised)
+	static bool useConsineWeighted = false;
+	//if (!giSamplesInitialised)
 	{
 		rtgiData.SampleVectors[0].w = sm_noofRTGISamples;
 
@@ -1876,12 +1896,15 @@ void FeaxRenderer::OnUpdate()
 		//useConsineWeighted = !useConsineWeighted;
 
 		giSamplesInitialised = true;
+	}
 
+	if (false)
+	{
 		m_debugRenderer.Begin();
 		XMFLOAT3 colour = { 1,0,0 };
 
-		XMFLOAT3 normal = { 0, 0, 1 };
-		XMFLOAT3 start = { 2, 3, -7.35f };
+		XMFLOAT3 normal = { 0, 0, -1 };
+		XMFLOAT3 start = { 0, 3, 0 };
 		XMFLOAT3 tan;
 
 		if (normal.z != 0)
@@ -1892,7 +1915,7 @@ void FeaxRenderer::OnUpdate()
 			tan = { -(normal.y + normal.z) / normal.x, 1, 1 };
 
 		//tan = { 1,0,0 };
-		
+
 		XMVECTOR N = Float3ToVector4(normal);
 		XMVECTOR T = Float3ToVector4(tan);
 
@@ -1904,17 +1927,18 @@ void FeaxRenderer::OnUpdate()
 
 		for (int i = 0; i < sm_noofRTGISamples; i++)
 		{
-			XMVECTOR end =	Float3ToVector4(start) + 
-							8 * rtgiData.SampleVectors[i].x * T + 
-							8 * rtgiData.SampleVectors[i].y * B + 
-							8 * rtgiData.SampleVectors[i].z * N;
+			XMVECTOR end = Float3ToVector4(start) +
+				8 * rtgiData.SampleVectors[i].x * T +
+				8 * rtgiData.SampleVectors[i].y * B +
+				8 * rtgiData.SampleVectors[i].z * N;
 
 			m_debugRenderer.AddLine(start, Vector4ToFloat3(end), colour);
 		}
 
 		m_debugRenderer.End();
-
 	}
+
+	
 
 	memcpy(m_rtgiCB->Map(), &rtgiData, sizeof(rtgiData));
 
@@ -2562,7 +2586,7 @@ void FeaxRenderer::PopulateCommandList()
 
 		//debug render
 		{
-		//	m_debugRenderer.Render(m_gbufferCB, gpuDescriptorHeap);
+			m_debugRenderer.Render(m_gbufferCB, gpuDescriptorHeap);
 		}
 
 		//render UI

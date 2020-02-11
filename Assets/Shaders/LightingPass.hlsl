@@ -20,6 +20,7 @@ cbuffer LightsConstantBuffer : register(b1)
 	uint	NoofPoint;
 	uint	NoofSpot;
 	uint	LightsConstantBuffer_pad;
+	float4	SkyLight;
 	DirectionalLightData DirectionalLight;
 	PointLightData PointLights[100];
 };
@@ -130,7 +131,7 @@ PSOutput PSMain(PSInput input)
 		float lightIntensity = DirectionalLight.Intensity.x;
 		float NdotL = saturate(dot(normal.xyz, lightDir));
 
-		output.diffuse.rgb = (lightIntensity * shadow * DiffuseBRDF() * NdotL) * lightColour + 0.01 * lightIntensity;
+		output.diffuse.rgb = (lightIntensity * shadow * DiffuseBRDF() * NdotL) * lightColour + 0.0 * lightIntensity;
 		output.specular.rgb = (lightIntensity * shadow * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) ) * lightColour;
 
 		[loop]

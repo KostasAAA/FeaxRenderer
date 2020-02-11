@@ -129,4 +129,20 @@ inline float Lerp(float a, float b, float t)
 //based on ImGUI's version
 template<typename T> inline T Clamp(T v, T mn, T mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
 
+// Computes the camera's EV100 from exposure settings
+// aperture in f-stops
+// shutterSpeed in seconds
+// sensitivity in ISO
+inline float GetEV100(float aperture, float shutterSpeed, float sensitivity) 
+{
+	return log2((aperture * aperture) / shutterSpeed * 100.0 / sensitivity);
+}
+
+// Computes the exposure normalization factor from
+// the camera's EV100
+inline float GetExposure(float ev100)
+{
+	return 1.0 / (pow(2.0, ev100) * 1.2);
+}
+
 XMVECTOR ConvertKelvinToLinearRGB(float K);
