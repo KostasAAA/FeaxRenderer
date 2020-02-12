@@ -303,14 +303,14 @@ void FeaxRenderer::LoadMeshes()
 #endif
 
 #if 1
-		float wallSize = 20;
+		float wallSize = 10;
 
 		//add a wall
 		model = new Model(Mesh::CreateCube(m_device.Get()));
-		objectToWorld = XMMatrixScaling(0.25f, 6.0f, wallSize) * XMMatrixTranslationFromVector(XMVectorSet(0.0f,3.0f, 0.0f, 0.0f));
+		objectToWorld = XMMatrixScaling(0.25f,2.0f, wallSize) * XMMatrixTranslationFromVector(XMVectorSet(0.0f,1.0f, 0.0f, 0.0f));
 
 		material.m_albedoID = -1;// m_textureManager.Load("Marble\\Marble01_col.jpg");;// m_textureManager.Load("Brick\\Bricks23_col.jpg");
-		material.m_roughness = 0.9f;
+		material.m_roughness = 0.5f;
 		material.m_metalness = 0.0f;
 		material.m_albedoColour = XMFloat4Pow(XMFLOAT4(0.5f, 0.5f, 0.5f, 1), 1 / 2.2f);// m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
@@ -410,7 +410,7 @@ void FeaxRenderer::LoadMeshes()
 
 		material.m_albedoID = -1;// m_textureManager.Load("Marble\\Marble01_col.jpg");  // m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
 		material.m_normalID = -1;// m_textureManager.Load("Marble\\Marble01_nrm.jpg");  //  m_textureManager.Load("BlackTile\\Tiles52_nrm.jpg");
-		material.m_roughness = 0.9f;
+		material.m_roughness = 0.5f;
 		material.m_metalness = 0.0f;
 		material.m_uvScale = XMFLOAT2(3.0f, 3.0f);
 		material.m_normalScale = XMFLOAT2(1, 1);// XMFLOAT2(0.05f, 0.05f);
@@ -1341,17 +1341,18 @@ void FeaxRenderer::LoadAssets()
 	}
 #endif
 
-	float lightHeight = 2;
-	float lightOffset = 0.2f;
-	float lightRadius = 3;
+#if 1
+	float lightHeight = 1;
+	float lightOffset = 0.35f;
+	float lightRadius = 20;
 
 	{
 		Light pointLight = {};
 
 		pointLight.m_castShadows = false;
-		pointLight.m_position = XMVectorSet(lightOffset, lightHeight, -6, 0);
+		pointLight.m_position = XMVectorSet(lightOffset, lightHeight, -2.6, 0);
 		pointLight.m_colour = ConvertKelvinToLinearRGB(3000.0f);
-		pointLight.m_intensity = 900.0f;
+		pointLight.m_intensity = 3000.0f;
 		pointLight.m_radius = lightRadius;
 		pointLight.m_rotationSpeed = 0.015f;
 
@@ -1362,9 +1363,9 @@ void FeaxRenderer::LoadAssets()
 		Light pointLight = {};
 
 		pointLight.m_castShadows = false;
-		pointLight.m_position = XMVectorSet(lightOffset, lightHeight, -3, 0);
-		pointLight.m_colour = ConvertKelvinToLinearRGB(1000.0f);
-		pointLight.m_intensity = 900.0f;
+		pointLight.m_position = XMVectorSet(lightOffset, lightHeight, -1.3, 0);
+		pointLight.m_colour = ConvertKelvinToLinearRGB(6000.0f);
+		pointLight.m_intensity = 3000.0f;
 		pointLight.m_radius = lightRadius;
 		pointLight.m_rotationSpeed = 0.015f;
 
@@ -1376,13 +1377,14 @@ void FeaxRenderer::LoadAssets()
 
 		pointLight.m_castShadows = false;
 		pointLight.m_position = XMVectorSet(lightOffset, lightHeight, 0, 0);
-		pointLight.m_colour = ConvertKelvinToLinearRGB(6000.0f);
-		pointLight.m_intensity = 900.0f;
+		pointLight.m_colour = ConvertKelvinToLinearRGB(10000.0f);
+		pointLight.m_intensity = 3000.0f;
 		pointLight.m_radius = lightRadius;
 		pointLight.m_rotationSpeed = 0.015f;
 
 		m_lightManager.AddPointLight(std::move(pointLight));
 	}
+#endif
 
 #if 0 
 	auto& pointLights = m_lightManager.GetPointLights();
@@ -1673,8 +1675,8 @@ void FeaxRenderer::OnUpdate()
 	XMMATRIX rotationCamera = XMMatrixRotationRollPitchYaw(rotX, rotY, 0);
 
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMVECTOR cameraPos = XMVectorSet(5.0f, 3.5f, 5.0f, 0.0f);
-	XMVECTOR cameraLookAt = XMVectorSet(0.0f, 3.0f, 0.0f, 0.0f);
+	XMVECTOR cameraPos = XMVectorSet(3.0f,1.5f, 3.0f, 0.0f);
+	XMVECTOR cameraLookAt = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	float fieldOfViewY = 3.141592654f / 4.0f;
 

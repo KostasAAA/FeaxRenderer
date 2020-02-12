@@ -32,10 +32,10 @@ XMVECTOR ConvertKelvinToLinearRGB (float K)
 
 	XMVECTOR linear = XYZ_to_sRGB( xyY_to_XYZ( XMVectorSet( 3.0f * u * d, 2.0f * v * d, 1.0f , 0) ) );
 
-	float maxComponent = XMVector3MaxElement(linear);
+	float maxComponent = max(1e-5f, XMVector3MaxElement(linear));
 
 	linear = linear / maxComponent;
 
 	// normalize and saturate
-	return linear;// saturate(linear / std::max(1e-5f, max(linear)));
+	return XMVector3Clamp(linear, 0, 1);// saturate(linear / std::max(1e-5f, max(linear)));
 }

@@ -55,7 +55,7 @@ PSOutput PSMain(PSInput input)
 		albedo.rgb = accurateSRGBToLinear(albedo.rgb);
 
 		albedo.rgb *= 1 - metalness;
-		output.colour.rgb =  albedo* (diffuse + gi) + specular;
+		output.colour.rgb =  albedo* (diffuse + 0*gi) + specular;
 	}
 
     return output;
