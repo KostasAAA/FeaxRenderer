@@ -3,7 +3,7 @@
 #define BACKFACE_CULLING 0
 #include"raytracingCommon.h"
 
-#define RAYTRACED_POINTLIGHT_SHADOWS
+//#define RAYTRACED_POINTLIGHT_SHADOWS
 
 cbuffer LightingConstantBuffer : register(b0)
 {
@@ -190,6 +190,7 @@ PSOutput PSMain(PSInput input)
 
 			shadow = shadowDepth;// lightSpacePos.z < shadowDepth + 0.001;
 #endif
+			shadow = 1;
 			float3 lightColour = PointLights[i].Colour.xyz;
 			float lightIntensity = PointLights[i].Intensity;
 
