@@ -11,6 +11,10 @@ typedef unsigned char uint8;
 
 #define Align(value, alignment) (((value + alignment - 1) / alignment) * alignment)
 
+//based on ImGUI's version
+template<typename T> inline T Clamp(T v, T mn, T mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
+
+
 inline XMVECTOR Float3ToVector4(XMFLOAT3& floatVec, float w)
 {
 	return XMVectorSet(floatVec.x, floatVec.y, floatVec.z, w);
@@ -86,6 +90,11 @@ inline float XMVector3MaxElement(const XMVECTOR& a)
 	return max(a.m128_f32[0], max(a.m128_f32[1], a.m128_f32[2]));
 }
 
+inline XMVECTOR XMVector3Clamp(const XMVECTOR& a, float low, float high)
+{
+	return XMVectorSet(Clamp(a.m128_f32[0], low, high), Clamp(a.m128_f32[1], low, high), Clamp(a.m128_f32[2], low, high), 0);
+}
+
 inline XMFLOAT4 XMFloat4Pow(XMFLOAT4& a, float power)
 {
 	return XMFLOAT4(
@@ -136,8 +145,6 @@ inline float Lerp(float a, float b, float t)
 	return a * (1.0 - t) + b * t;
 }
 
-//based on ImGUI's version
-template<typename T> inline T Clamp(T v, T mn, T mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
 
 // Computes the camera's EV100 from exposure settings
 // aperture in f-stops

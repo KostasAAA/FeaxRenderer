@@ -1383,6 +1383,7 @@ void FeaxRenderer::LoadAssets()
 
 		m_lightManager.AddPointLight(std::move(pointLight));
 	}
+#endif
 
 #if 0 
 	auto& pointLights = m_lightManager.GetPointLights();
