@@ -90,7 +90,7 @@ PSOutput PSMain(PSInput input)
 		float4 albedo = albedoBuffer[input.position.xy];
 
 		float roughness = normal.w;
-		float metalness = albedo.w;
+        float metalness = uint(albedo.w * 255) & 1;
 		float3 specularColour = lerp(0.04, albedo.rgb, metalness);
 
 		float2 uv = input.position.xy * RTSize.zw;
@@ -131,8 +131,8 @@ PSOutput PSMain(PSInput input)
 		float lightIntensity = DirectionalLight.Intensity.x;
 		float NdotL = saturate(dot(normal.xyz, lightDir));
 
-		output.diffuse.rgb = (lightIntensity * shadow * DiffuseBRDF() * NdotL) * lightColour + 0.0 * lightIntensity;
-		output.specular.rgb = (lightIntensity * shadow * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) ) * lightColour;
+        output.diffuse.rgb = (lightIntensity * shadow * DiffuseBRDF() * NdotL) * lightColour;// +0.0 * lightIntensity;
+		output.specular.rgb = (lightIntensity * shadow * NdotL) * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) * lightColour;
 
 		[loop]
 		for (uint i = 0; i < NoofPoint; i++)
@@ -199,7 +199,7 @@ PSOutput PSMain(PSInput input)
 			float falloff = SquareFalloffAttenuation(worldToLight, rcp(PointLights[i].Radius)); // 1 - saturate(dist / PointLights[i].Radius);
 
 			output.diffuse.rgb += (lightIntensity * shadow * falloff * DiffuseBRDF() * NdotL) * lightColour;
-			output.specular.rgb += (lightIntensity * shadow * falloff) * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) * lightColour;
+			output.specular.rgb += (lightIntensity * shadow * falloff * NdotL) * SpecularBRDF(normal.xyz, viewDir, lightDir, roughness, specularColour) * lightColour;
 		}
 	}
 	else

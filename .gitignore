@@ -7,3 +7,5 @@ FeaxRenderer.iobj
 *.ilk
 FeaxRenderer.exe
 FeaxRendererD.exe
+*.exe
+FeaxRenderer.exe

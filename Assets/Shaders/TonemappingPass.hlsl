@@ -70,8 +70,8 @@ float4 PSMain(PSInput input) : SV_Target
 			result = float3(1, 0, 0);
 	}
 
-	float ev100 = GetExposureSettings(Aperture, ShutterSpeed, ISO);
-	float exposure = GetExposure(ev100);
+	//float ev100 = GetExposureSettings(Aperture, ShutterSpeed, ISO);
+	//float exposure = GetExposure(ev100);
 
 //	result *= exposure;
 //	result *= Exposure;

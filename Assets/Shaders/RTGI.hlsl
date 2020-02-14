@@ -211,7 +211,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	result.rgb /= noofSamples * (1 / (2 * PI));
 
-	result.rgb = lerp(rtgiHistoryBuffer[screenPos].rgb, result.rgb, 0.05);
+	result.rgb = lerp(rtgiHistoryBuffer[screenPos].rgb, result.rgb, 0.01);
 
 	outputRT[screenPos] = float4( result.rgb, 1);
 }

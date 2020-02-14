@@ -56,7 +56,7 @@ float3 SpecularBRDF(float3 N, float3 V, float3 L, float roughness, float3 F0)
 	float k = alpha / 2.0f;
 	float Vis = G1V(dotNL, k)*G1V(dotNV, k);
 
-	float3 specular = (dotNL * D * Vis) * F;
+	float3 specular = ( D * Vis) * F;
 
 	return specular;
 }
