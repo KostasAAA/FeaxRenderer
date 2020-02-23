@@ -378,17 +378,17 @@ void FeaxRenderer::LoadMeshes()
 #if 0
 		//add trees
 		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\Tree 02\\Tree.obj"));
-		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.0f, 7.0f, 0.0f));
+		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(0.0f, 0.0f,0.0f, 0.0f));
 
 		material.m_albedoID = m_textureManager.Load("DB2X2_L01.png");
 		material.m_roughness = 0.9f;
 		material.m_metalness = 0.0f;
-		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
+		material.m_uvScale = XMFLOAT2(0.2f, 0.2f);
 
 		materialID = m_materials.size();
 
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
+		/*
 		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(7.0f, 0.0f, 0.0f, 0.0f));
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
@@ -400,7 +400,7 @@ void FeaxRenderer::LoadMeshes()
 
 		objectToWorld = XMMatrixScaling(2, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(-10.0f, 0.0f, -10.0f, 0.0f));
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
-
+*/
 		m_materials.push_back(material);
 #endif
 
@@ -430,6 +430,31 @@ void FeaxRenderer::LoadMeshes()
 		//scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 
 		BVH::CreateBVHBuffer(Graphics::Context.m_scene);
+	}
+
+	//add decals
+	{
+		Material material = {};
+		Model* model = nullptr;
+		XMMATRIX objectToWorld;
+		int materialID = 0;
+
+		model = new Model(Mesh::CreateCube(m_device.Get()));
+		objectToWorld = XMMatrixScaling(0.5f, 2, 2) * XMMatrixTranslationFromVector(XMVectorSet(0, 1.0f, 0, 0.0f));
+
+		material.m_albedoID = m_textureManager.Load("DB2X2_L01.png");
+		material.m_normalID = m_textureManager.Load("DB2X2_L01_Nor.png");
+		
+		material.m_roughness = 0.2f;
+		material.m_metalness = 0.0f;
+		material.m_uvScale = XMFLOAT2(1.0f, 1.0f);
+		material.m_normalScale = XMFLOAT2(1.0f, 1.0f);
+		material.m_albedoColour = m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
+		materialID = m_materials.size();
+
+		m_materials.push_back(material);
+
+		scene->AddDecalInstance(new ModelInstance(model, material, materialID, objectToWorld));
 	}
 
 	//create full triangle resources
@@ -604,6 +629,87 @@ void FeaxRenderer::CreateRenderpassResources()
 		m_gbufferCB = new Buffer(cbDesc, L"GBuffer CB");
 	}
 
+	//create resources for deferred decal pass
+	{
+		// root signature
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+		m_decalRS.Reset(2, 1);
+		m_decalRS.InitStaticSampler(0, SamplerLinearWrapDesc, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_decalRS[0].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 0, 2, D3D12_SHADER_VISIBILITY_ALL);
+		m_decalRS[1].InitAsDescriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0, sm_MaxNoofTextures + 1, D3D12_SHADER_VISIBILITY_PIXEL);
+		m_decalRS.Finalise(m_device.Get(), L"DecalPassRS", rootSignatureFlags);
+
+		//Create Pipeline State Object
+		ComPtr<ID3DBlob> vertexShader;
+		ComPtr<ID3DBlob> pixelShader;
+
+#if defined(_DEBUG)
+		// Enable better shader debugging with the graphics debugging tools.
+		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+		UINT compileFlags = 0;
+#endif
+
+		ID3DBlob* errorBlob = nullptr;
+
+		//	ShaderCompiler::Compile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), L"VSMain", L"vs_6_0", &vertexShader);
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\DecalPass.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_1", compileFlags, 0, &vertexShader, &errorBlob));
+
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		compileFlags |= D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES;
+
+		//ShaderCompiler::Compile(GetAssetFullPath(L"Assets\\Shaders\\GBufferPass.hlsl").c_str(), L"PSMain", L"ps_6_0", &pixelShader);
+		(D3DCompileFromFile(GetAssetFullPath(L"Assets\\Shaders\\DecalPass.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_1", compileFlags, 0, &pixelShader, &errorBlob));
+
+		if (errorBlob)
+		{
+			OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+			errorBlob->Release();
+		}
+
+		// Define the vertex input layout.
+		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		};
+
+		// Describe and create the graphics pipeline state object (PSO).
+		DXGI_FORMAT m_rtFormats[GBuffer::Noof];
+		for (int i = 0; i < GBuffer::Noof; i++)
+			m_rtFormats[i] = m_gbufferRT[i]->GetFormat();
+
+		m_decalPSO.SetRootSignature(m_decalRS);
+		m_decalPSO.SetRasterizerState(RasterizerDefault);
+		m_decalPSO.SetBlendState(BlendTraditional);
+		m_decalPSO.SetDepthStencilState(DepthStateDisabled);
+		m_decalPSO.SetInputLayout(_countof(inputElementDescs), inputElementDescs);
+		m_decalPSO.SetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+		m_decalPSO.SetRenderTargetFormats(_countof(m_rtFormats), m_rtFormats, DXGI_FORMAT_D32_FLOAT);
+		m_decalPSO.SetVertexShader(vertexShader->GetBufferPointer(), vertexShader->GetBufferSize());
+		m_decalPSO.SetPixelShader(pixelShader->GetBufferPointer(), pixelShader->GetBufferSize());
+		m_decalPSO.Finalize(m_device.Get());
+
+		////create constant buffer for pass
+		//Buffer::Description cbDesc;
+		//cbDesc.m_elementSize = sizeof(DecalCBData);
+		//cbDesc.m_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+		//cbDesc.m_descriptorType = Buffer::DescriptorType::CBV;
+
+		//m_gbufferCB = new Buffer(cbDesc, L"GBuffer CB");
+	}
 
 	//create resources for local lights shadows pass
 	{
@@ -1341,9 +1447,10 @@ void FeaxRenderer::LoadAssets()
 	}
 #endif
 
+#if 1
 	float lightHeight = 0.82f;
 	float lightOffset = 0.4f;
-	float lightRadius = 200;
+	float lightRadius = 20000;
 
 	{
 		Light pointLight = {};
@@ -1786,8 +1893,10 @@ void FeaxRenderer::OnUpdate()
 
 	GPrepassCBData gbufferPassData;
 	gbufferPassData.ViewProjection = viewProjection;
+	gbufferPassData.InvViewProjection = invViewProjection;
 	gbufferPassData.MipBias = m_useTAA ? MipBias : 0.0f;
 	XMStoreFloat4(&gbufferPassData.CameraPos, cameraPos);
+	gbufferPassData.RTSize = { (float)m_width, (float)m_height, 1.0f / m_width, 1.0f / m_height };
 
 	memcpy(m_gbufferCB->Map(), &gbufferPassData, sizeof(gbufferPassData));
 
@@ -2264,10 +2373,68 @@ void FeaxRenderer::PopulateCommandList()
 
 			//transition rendertargets to shader resources 
 			ResourceBarrierBegin(Graphics::Context);
+			m_depthStencil->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+			ResourceBarrierEnd(Graphics::Context);
+		}
+
+		//decal pass
+		if (true)
+		{
+			Scene* scene = Graphics::Context.m_scene;
+
+			m_commandList->SetPipelineState(m_decalPSO.GetPipelineStateObject());
+			m_commandList->SetGraphicsRootSignature(m_decalRS.GetSignature());
+
+			m_commandList->RSSetViewports(1, &m_viewport);
+			m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[] =
+			{
+				m_gbufferRT[GBuffer::Albedo]->GetRTV().GetCPUHandle(),
+				m_gbufferRT[GBuffer::Normal]->GetRTV().GetCPUHandle()
+			};
+
+			m_commandList->OMSetRenderTargets(_countof(rtvHandles), rtvHandles, FALSE, nullptr);
+
+			DescriptorHandle cbvHandle;
+			DescriptorHandle srvHandle;
+
+			assert(m_textureManager.GetTextures().size() < sm_MaxNoofTextures);
+
+			srvHandle = gpuDescriptorHeap->GetHandleBlock(sm_MaxNoofTextures + 1);
+
+			gpuDescriptorHeap->AddToHandle(srvHandle, m_depthStencil->GetSRV());
+
+			auto textures = m_textureManager.GetTextures();
+
+			for (int i = 0; i < sm_MaxNoofTextures; i++)
+			{
+				if (i < textures.size())
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, textures[i]->GetSRV());
+				}
+				else
+				{
+					gpuDescriptorHeap->AddToHandle(srvHandle, m_nullDescriptor);
+				}
+			}
+
+			for (ModelInstance* modelInstance : scene->GetDecalInstances())
+			{
+				cbvHandle = gpuDescriptorHeap->GetHandleBlock(2);
+				gpuDescriptorHeap->AddToHandle(cbvHandle, m_gbufferCB->GetCBV());
+				gpuDescriptorHeap->AddToHandle(cbvHandle, modelInstance->GetCB()->GetCBV());
+
+				m_commandList->SetGraphicsRootDescriptorTable(0, cbvHandle.GetGPUHandle());
+				m_commandList->SetGraphicsRootDescriptorTable(1, srvHandle.GetGPUHandle());
+
+				modelInstance->GetModel()->Render(m_commandList.Get());
+			}
+
+			//transition rendertargets to shader resources 
+			ResourceBarrierBegin(Graphics::Context);
 			m_gbufferRT[GBuffer::Albedo]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 			m_gbufferRT[GBuffer::Normal]->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-			m_depthStencil->TransitionTo(Graphics::Context, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
 			ResourceBarrierEnd(Graphics::Context);
 		}
 
