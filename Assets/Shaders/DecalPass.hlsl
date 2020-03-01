@@ -70,6 +70,18 @@ struct PSOutput
 	float4 normal : SV_Target1;
 };
 
+float3 GetWorldPosFromDepth(float2 screenPos, float depth)
+{
+	float2 uv = screenPos * RTSize.zw;
+	float4 clipPos = float4(2 * uv - 1, depth, 1);
+	clipPos.y = -clipPos.y;
+
+	float4 worldPos = mul(InvViewProjection, clipPos);
+	worldPos.xyz /= worldPos.w;
+
+	return worldPos.xyz;
+}
+
 PSOutput PSMain(PSInput input)
 {
 	PSOutput output = (PSOutput)0;
@@ -81,18 +93,29 @@ PSOutput PSMain(PSInput input)
 	float depth = depthBuffer[input.position.xy].x;
 
 	float2 uv = input.position.xy * RTSize.zw;
-	float4 clipPos = float4(2 * uv - 1, depth, 1);
-	clipPos.y = -clipPos.y;
 
-	float4 worldPos = mul(InvViewProjection, clipPos);
-	worldPos.xyz /= worldPos.w;
+	float3 worldPos = GetWorldPosFromDepth(input.position.xy, depth);
 
 	float4 objectSpacePos = mul(ToObject, float4(worldPos.xyz, 1));
 
 	clip(0.5 - abs(objectSpacePos.xyz));
 
-	uv = saturate( objectSpacePos.yz + 0.5 );
+	float3 ddxWp = ddx(worldPos);
+	float3 ddyWp = ddy(worldPos);
 
+	//Determine the normal
+	float3 normal = normalize(cross(ddxWp, ddyWp));
+
+	float3 absN = abs(normal);
+	float maxAbs = max(max(absN.x, absN.y), absN.z);
+
+	if(absN.x == maxAbs)
+		uv = saturate( objectSpacePos.yz + 0.5 );
+	else if (absN.y == maxAbs)
+		uv = saturate(objectSpacePos.xz + 0.5);
+	else 
+		uv = saturate(objectSpacePos.xy + 0.5);
+	
 	if (AlbedoID >= 0)
 	{
 		albedo = Textures[NonUniformResourceIndex(AlbedoID)].SampleBias(SamplerLinear, uv, MipBias).rgba;
@@ -100,17 +123,8 @@ PSOutput PSMain(PSInput input)
 
 	clip(albedo.a - 0.5f);
 
-	float3 normal = normalize(input.normal.xyz);
-
 	if (NormalID >= 0)
 	{
-		//Get values across and along the surface
-		float3 ddxWp = ddx(worldPos);
-		float3 ddyWp = ddy(worldPos);
-
-		//Determine the normal
-		normal = normalize(cross(ddxWp, ddyWp));
-
 		float3 bitangent = normalize(ddyWp);
 		float3 tangent = normalize(ddxWp);
 
