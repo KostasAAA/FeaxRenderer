@@ -18,7 +18,7 @@
 #include "FeaxRenderer.h"
 #include "ShaderCompiler.h"
 
-#define ENABLE_RTGI 0
+#define ENABLE_RTGI 1
 
 using namespace Graphics;
 
@@ -207,7 +207,7 @@ void FeaxRenderer::LoadMeshes()
 		XMMATRIX objectToWorld;
 		int materialID = 0;
 
-#if 0
+#if 1
 		//add statue
 		model = modelLoader.Load(m_device.Get(), string("Assets\\Meshes\\statue.obj"));
 		objectToWorld = XMMatrixRotationY(60.0f);
@@ -302,7 +302,7 @@ void FeaxRenderer::LoadMeshes()
 		m_materials.push_back(material);
 #endif
 
-#if 1
+#if 0
 		float wallSize = 7;
 
 		//add a wall
@@ -318,14 +318,14 @@ void FeaxRenderer::LoadMeshes()
 		scene->AddModelInstance(new ModelInstance(model, material, materialID, objectToWorld));
 #endif
 
-#if 0
-		float wallSize = 20;
+#if 1
+		float wallSize = 15;
 
 		//add a wall
 		model = new Model(Mesh::CreateCube(m_device.Get()));
 		objectToWorld = XMMatrixScaling(0.25f, 8.0f, wallSize) * XMMatrixTranslationFromVector(XMVectorSet(-wallSize/2, 4.0f, 0.0f, 0.0f));
 
-		material.m_albedoID = -1;// m_textureManager.Load("Marble\\Marble01_col.jpg");;// m_textureManager.Load("Brick\\Bricks23_col.jpg");
+		material.m_albedoID = m_textureManager.Load("spnza_bricks_a_diff.jpg"); //-1;// m_textureManager.Load("Marble\\Marble01_col.jpg");;// m_textureManager.Load("Brick\\Bricks23_col.jpg");
 		material.m_roughness = 0.1f;
 		material.m_metalness = 0.0f;
 		material.m_albedoColour = XMFLOAT4(1, 1, 1, 1);// m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
@@ -410,11 +410,11 @@ void FeaxRenderer::LoadMeshes()
 
 		material.m_albedoID = -1;// m_textureManager.Load("Marble\\Marble01_col.jpg");  // m_textureManager.Load("BlackTile\\Tiles52_col.jpg");
 		material.m_normalID = -1;// m_textureManager.Load("Marble\\Marble01_nrm.jpg");  //  m_textureManager.Load("BlackTile\\Tiles52_nrm.jpg");
-		material.m_roughness = 0.5f;
+		material.m_roughness = 0.9f;
 		material.m_metalness = 0.0f;
 		material.m_uvScale = XMFLOAT2(3.0f, 3.0f);
 		material.m_normalScale = XMFLOAT2(1, 1);// XMFLOAT2(0.05f, 0.05f);
-		material.m_albedoColour = XMFloat4Pow(XMFLOAT4(0.5f, 0.5f, 0.5f, 1), 1/2.2f);// m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
+        material.m_albedoColour = XMFloat4Pow(XMFLOAT4(1.0f, 0.0f, 0.0f, 1), 1 / 2.2f);// XMFloat4Pow(XMFLOAT4(0.5f, 0.5f, 0.5f, 1), 1 / 2.2f);// m_textureManager.GetTexture(material.m_albedoID).GetAverageColour();
 		materialID = m_materials.size();
 
 		objectToWorld = XMMatrixScaling(5, 1, 5) * XMMatrixTranslationFromVector(XMVectorSet(0, 0.0f, 0, 0.0f));
@@ -885,8 +885,8 @@ void FeaxRenderer::CreateRenderpassResources()
 	//create resources for raytraced GI pass
 	{
 		Rendertarget::Description desc = {};
-		desc.m_width = m_width / 4;
-		desc.m_height = m_height / 4;
+        desc.m_width = m_width / 2;
+        desc.m_height = m_height / 2;
 		desc.m_format = DXGI_FORMAT_R11G11B10_FLOAT;
 		desc.m_flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 		desc.m_clearColour = { 0,0,0,0 };
@@ -1341,6 +1341,7 @@ void FeaxRenderer::LoadAssets()
 	}
 #endif
 
+#if 0
 	float lightHeight = 0.82f;
 	float lightOffset = 0.4f;
 	float lightRadius = 200;
@@ -1521,7 +1522,7 @@ void FeaxRenderer::OnUpdate()
 	static float ISO = 100.0f;
 	static float ShutterSpeed = 1 / 100.0f;
 	static float ExposureValue = 10;
-	static float SunIntensity = 0*120000;
+	static float SunIntensity = 120000;
 	static bool giSamplesInitialised = false;
 
 	static bool RotateLights = false;
@@ -1943,7 +1944,7 @@ void FeaxRenderer::OnUpdate()
 	rtgiData.RTSize = { (float)m_rtgiRT->GetWidth(), (float)m_rtgiRT->GetHeight(), 1.0f / m_rtgiRT->GetWidth(), 1.0f / m_rtgiRT->GetHeight() };
 	rtgiData.FrameIndex = frameCount % 4;
 
-	static bool useConsineWeighted = false;
+	static bool useConsineWeighted = true;
 	//if (!giSamplesInitialised)
 	{
 		rtgiData.SampleVectors[0].w = sm_noofRTGISamples;

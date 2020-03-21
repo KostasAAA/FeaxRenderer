@@ -70,7 +70,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 //	float3 mainRT = mainBuffer[2 * screenPos].xyz;
 
-	float depth = depthBuffer[4 * screenPos].r;
+	float depth = depthBuffer[2 * screenPos].r;
 
 	if ( depth == 1)
 	{
@@ -78,11 +78,10 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 		return;
 	}
 
-	float3 albedo =   albedoBuffer[2 * screenPos].rgb;
+   // float3 albedo  = albedoBuffer[ screenPos].rgb;
+	//albedo = pow(albedo, 2.2);
 
-	albedo = pow(albedo, 2.2);
-
-	float4 normal = normalBuffer[4 * screenPos].xyzw;
+	float4 normal = normalBuffer[2 * screenPos].xyzw;
 
 	//get world position from depth
 	float2 uv = (screenPos.xy + 0.5) * RTSize.zw;
@@ -112,17 +111,18 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 
 	int noofSamples =  SampleVectors[0].w / 4;
 
-//	int index = (screenPos.y * RTSize.x + screenPos.x) % 3;
+	int index = (screenPos.y * RTSize.x + screenPos.x) % 4;
 
 	float noofHits = 0;
-	
+    //int offset = index * noofSamples;
+    int offset = (rand01(uv) * 3) * noofSamples;
+
 	for (int i = 0; i < noofSamples; i++)
 	{
 //		int offset = rand01(uv) * (SampleVectors[0].w - 1);
 //		int offset = FrameIndex * noofSamples + i;
-//		int offset = i;
 
-		float3 rayDirection = SampleVectors[i].x * tangent + SampleVectors[i].y * bitangent + SampleVectors[i].z * normal;
+		float3 rayDirection = SampleVectors[offset + i].x * tangent + SampleVectors[offset + i].y * bitangent + SampleVectors[offset + i].z * normal;
 
 		rayDirection = normalize(rayDirection);
 
@@ -194,9 +194,7 @@ void CSMain(uint3 Gid : SV_GroupID, uint3 DTid : SV_DispatchThreadID, uint3 GTid
 				float NdotL = saturate(dot(hitPointNormal, lightDir));
 
 				float3 lightFromHitPoint =  (shadow * falloff * DiffuseBRDF() * NdotL )* albedoHitPoint.rgb * PointLights[j].Colour.xyz;
-				
-				albedo = 1;
-				
+											
 				//bounced light reaching the surface
 				result +=  lightFromHitPoint * (DiffuseBRDF() * bounchedNdotL);
 			}
