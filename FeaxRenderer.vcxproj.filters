@@ -295,5 +295,8 @@
     <FxCompile Include="Assets\Shaders\RayGen.hlsl">
       <Filter>Assets\Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Assets\Shaders\DecalPass.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

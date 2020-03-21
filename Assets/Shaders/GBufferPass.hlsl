@@ -20,6 +20,7 @@ struct PSInput
 cbuffer GPrepassCB : register(b0)
 {
 	float4x4 ViewProjection;
+	float4x4 InverseViewProjection;
 	float4  CameraPosition;
 	float	MipBias;
 	float3	pad;
@@ -28,6 +29,7 @@ cbuffer GPrepassCB : register(b0)
 cbuffer perModelInstanceCB : register(b1)
 {
 	float4x4	World;
+	float4x4	ToObject;
 	float		AlbedoID;
 	float		NormalID;
 	float		Roughness;
@@ -165,7 +167,7 @@ PSOutput PSMain(PSInput input)
 		clip(-1);
 	}
 
-//	clip(albedo.a - 0.5f);
+	clip(albedo.a - 0.5f);
 
 	if (NormalID >= 0)
 	{

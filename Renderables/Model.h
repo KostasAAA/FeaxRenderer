@@ -74,6 +74,7 @@ public:
 	__declspec(align(16)) struct ModelInstanceCBData
 	{
 		XMMATRIX	World;
+		XMMATRIX	ToObject;
 		float		AlbedoID;
 		float		NormalID;
 		float		Roughness;
@@ -121,8 +122,11 @@ public:
 		m_aabox.MinBounds = Vector4ToFloat3(XMVector4Transform(minBounds, m_objectToWorld));
 		m_aabox.MaxBounds = Vector4ToFloat3(XMVector4Transform(maxBounds, m_objectToWorld));
 
+		XMVECTOR determinant;
+
 		ModelInstanceCBData cbData = {};
 		cbData.World = m_objectToWorld;
+		cbData.ToObject = XMMatrixInverse(&determinant, m_objectToWorld);
 		cbData.AlbedoID = m_material.m_albedoID;
 		cbData.NormalID = m_material.m_normalID;
 		cbData.Roughness = m_material.m_roughness;
@@ -180,6 +184,16 @@ public:
 		return m_models;
 	}
 
+	std::vector<ModelInstance*>& GetDecalInstances()
+	{
+		return m_decalInstances;
+	}
+
+	std::vector<Model*>& GetDecals()
+	{
+		return m_decals;
+	}
+
 	void AddModelInstance(ModelInstance* modelInstance)
 	{
 		m_aabox.Expand(modelInstance->GetAABB());
@@ -189,6 +203,17 @@ public:
 		if (it == m_models.end())
 		{
 			m_models.push_back(modelInstance->GetModel());
+		}
+	}
+
+	void AddDecalInstance(ModelInstance* decalInstance)
+	{
+		m_decalInstances.push_back(decalInstance);
+
+		std::vector<Model*>::iterator it = find(m_decals.begin(), m_decals.end(), decalInstance->GetModel());
+		if (it == m_decals.end())
+		{
+			m_decals.push_back(decalInstance->GetModel());
 		}
 	}
 
@@ -213,7 +238,9 @@ public:
 private:
 	AABB						m_aabox;
 	std::vector<ModelInstance*> m_modelInstances;
+	std::vector<ModelInstance*> m_decalInstances;
 	std::vector<Model*>			m_models;
+	std::vector<Model*>			m_decals;
 	Buffer*						m_bvhBuffer;
 	Buffer*						m_bvhBufferNormals;
 	Buffer*						m_bvhBufferUVs;

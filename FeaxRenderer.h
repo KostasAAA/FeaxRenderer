@@ -83,7 +83,9 @@ private:
 	__declspec(align(16)) struct GPrepassCBData
 	{
 		XMMATRIX ViewProjection;
+		XMMATRIX InvViewProjection;
 		XMFLOAT4 CameraPos;
+		XMFLOAT4 RTSize;
 		float MipBias;
 	};
 
@@ -213,6 +215,11 @@ private:
 	GraphicsPSO		m_gbufferPSO;
 	RootSignature	m_gbufferRS;
 	Buffer*			m_gbufferCB;
+
+	//decal  pass
+	GraphicsPSO		m_decalPSO;
+	RootSignature	m_decalRS;
+	Buffer*			m_decalCB;
 
 	//raytraced shadows pass
 	Rendertarget*	m_shadowsRT;
